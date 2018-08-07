@@ -1,0 +1,387 @@
+---
+title: "Jaekel_Agirre_et_al_analysis_1"
+author: "Eneritz"
+date: "June, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load count matrixes from CellRanger output and Velocyto spliced+unspliced counts for all the samples combined
+
+
+```{r }
+library(scater)
+library(Seurat)
+```
+
+## First QC checking with scater. Note: Download the data files to your working directory.
+
+```{r pressure, echo=FALSE}
+#load count matrix
+load("Nuclei_intronexon.Robj" , verbose=T )
+
+networkAnnotableFile <- read.table("10X_Nuclei_networkAnnotableFile.txt")
+header <- c( "cell" , "original" , "sample" , "condition" , "lesion" , "patient" )
+colnames(networkAnnotableFile) <- header
+
+
+table(grepl("MALAT1",rownames(nuclei_combmat)))
+nuclei_combmat <- nuclei_combmat[! grepl("MALAT1",rownames(nuclei_combmat)),]
+
+table(grepl("XIST",rownames(nuclei_combmat)))
+nuclei_combmat <- nuclei_combmat[! grepl("XIST",rownames(nuclei_combmat)),]
+
+
+sceset_intronexon <- SingleCellExperiment(
+    assays = list(counts = nuclei_combmat ), 
+    colData = networkAnnotableFile
+)
+
+
+keep_feature <- rowSums(counts(sceset_intronexon) > 0) > 0
+sceset_intronexon <- sceset_intronexon[keep_feature,]
+
+is.mito <- grepl("^MT.", rownames(sceset_intronexon))
+summary(is.mito)
+#there is  mitochondrial
+sceset_intronexon <- calculateQCMetrics(sceset_intronexon , feature_controls=list( Mt=is.mito)  )
+
+
+plotQC(sceset_intronexon ,  type = "highest-expression", exprs_values = "counts")
+
+plotQC(sceset_intronexon, type = "exprs-freq-vs-mean")
+
+
+plotQC(sceset_intronexon, type = "expl",
+    variables = c("total_features_by_counts", "total_counts",
+        "sample", "patient", "lesion"))
+
+
+p1 <- plotQC(sceset_intronexon[, !sceset_intronexon$is_cell_control],
+    type = "highest-expression")
+
+p2 <- plotQC(sceset_intronexon[, sceset_intronexon$is_cell_control],
+    type = "highest-expression")
+
+multiplot(p1, p2, cols = 2)
+
+# Remove cells with total transcript count below 500
+summary(sceset_intronexon$total_counts)
+
+hist(sceset_intronexon$total_counts, 100)
+abline(v = 300, col = "red", lwd = 2)
+
+summary(sceset_intronexon$total_features)
+
+hist(sceset_intronexon$total_features, 100)
+abline(v = 200, col = "red", lwd = 2)
+
+
+sceset_intronexon <- sceset_intronexon[, sceset_intronexon$total_counts > 300]
+sceset_intronexon <- sceset_intronexon[, sceset_intronexon$total_features > 200]
+
+dim(sceset_intronexon)
+
+## Exclude genes that don't have a count above 1 in at least 2 cells
+filter_genes <- apply(counts(sceset_intronexon), 1, function(x) length(x[x >= 1]) >= 2)
+sceset_intronexon <- sceset_intronexon[filter_genes, ]
+dim(sceset_intronexon)
+
+##create first filtered count matrix
+save( sceset_intronexon , file =  "Nuclei_intronexon_sceset_filtered.Robj")
+
+
+```
+separate the combined 20 samples
+```{r}
+
+sceset_intronexon <- lapply(unique(sceset_intronexon$sample), function(i) {
+  sceset_intronexon[, sceset_intronexon$sample == i]
+})
+
+```
+run seurat in the 20 samples separatelly
+```{r}
+sces2 <- lapply(sceset_intronexon, function(w) {
+  tmp <- as.matrix(counts(w))
+  colnames(tmp) <- paste0(colData(w)$sample, "__" , 
+                          colData(w)$cell)
+                  
+  tmp
+})
+
+```
+Include labels to annotation file and run seurat 
+```{r}
+
+## Create Seurat object for each sample
+seurats <- lapply(sces2, function(w) {
+  s <- CreateSeuratObject(raw.data = w, 
+                          min.cells = 3, min.genes = 200, project = "MSCtrl")
+ 
+   mito.genes <- grep(pattern = "^MT.", x = rownames(x = s@data), value = TRUE)
+ 
+     percent.mito <- Matrix::colSums(s@raw.data[mito.genes, ])/Matrix::colSums(s@raw.data)
+s <- AddMetaData(object = s , metadata = percent.mito, col.name = "percent.mito")  
+     s <- AddMetaData(object = s , metadata = original, col.name = "original")  
+###from annatation table
+s <- AddMetaData(object = s , metadata = sample, col.name = "sample")  
+s <- AddMetaData(object = s , metadata = condition , col.name = "condition")  
+s <- AddMetaData( object = s , metadata = lesion , col.name = "lesion" )
+s <- AddMetaData( object = s , metadata = patient , col.name = "patient" )
+
+s <- FilterCells(object = s, subset.names = c("nGene" ), 
+   #low.thresholds = ( -Inf), high.thresholds = (Inf))
+   low.thresholds = c(200, -Inf), high.thresholds = c(3500, 0.20)) 
+
+  s <- NormalizeData(s)
+  
+  s <- ScaleData(s, vars.to.regress =c("nUMI" , "percent.mito" ), display.progress = FALSE)
+  s@meta.data$orig.ident <- s@meta.data$sample
+  FindVariableGenes(s, do.plot = FALSE)
+})
+
+
+save( seurats , file =  "Nuclei_intronexon_sceset_filtered_seurats.Robj")
+
+```
+run CCA using the grouping from the samples
+```{r}
+## Find highly variable genes as the union of the top HVGs from each sample 
+hvgs <- unique(unlist(lapply(seurats, function(w) rownames(head(w@hvg.info, n = 500)))))
+
+table(grepl("^RP",(hvgs)))
+
+hvgs <- hvgs[! grepl("^RP",(hvgs))]
+## Remove batch effects and merge samples
+seurat <- NULL
+discarded_cells <- c()
+Ns <- seq_len(length(seurats))
+while(length(Ns) > 0) {
+  if (is.null(seurat)) {
+    seurat <- RunCCA(object = seurats[[Ns[1]]], object2 = seurats[[Ns[2]]], genes.use = hvgs)
+    Ns <- Ns[-(1:2)]
+  } else {
+    seurat <- RunCCA(object = seurat, object2 = seurats[[Ns[1]]], genes.use = hvgs)
+    Ns <- Ns[-1]
+  }
+  seurat <- CalcVarExpRatio(seurat, reduction.type = "pca", 
+                            grouping.var = "sample", dims.use= 1:15)
+  seuratdiscarded <- SubsetData(seurat, subset.name = "var.ratio.pca", accept.high = 0.5)
+  print(table(seuratdiscarded@meta.data$sample))
+  discarded_cells <- c(discarded_cells, rownames(seuratdiscarded@meta.data))
+  seurat <- SubsetData(seurat, subset.name = "var.ratio.pca", accept.low = 0.5)
+  seurat <- AlignSubspace(seurat, reduction.type = "cca", 
+                          grouping.var = "sample", dims.align = 1:15)
+  seurat@meta.data$sample <- paste(unique(seurat@meta.data$sample), collapse = "_")
+}
+
+
+save( seurat , file =  "Nuclei_intronexon_sceset_filtered_CCA_sample.Robj")
+
+```
+check distributions
+```{r}
+Nuclei_intex_cca <- seurat
+
+
+#recheck mitochondrial, I will need to remove them later
+par(mfrow = c(1,3))
+GenePlot(object = Nuclei_intex_cca, gene1 = "nUMI", gene2 = "percent.mito", pch.use = '.')
+GenePlot(object = Nuclei_intex_cca, gene1 = "nUMI", gene2 = "nGene", pch.use = '.')
+
+###check the normalized data distribution
+hist(colSums(Nuclei_intex_cca@scale.data),
+     breaks = 100,
+     main = "Total expression after normalisation",
+     xlab = "Sum of expression")
+
+
+Nuclei_intexon_seurat_CCA_filter <- FilterCells(object = Nuclei_intex_cca, subset.names = c("nGene" , "percent.mito"),
+    low.thresholds = c(200, -Inf), high.thresholds = c(6000, 0.20))
+
+
+
+#recheck mitochondrial, I will need to remove them later
+par(mfrow = c(1,3))
+GenePlot(object = Nuclei_intexon_seurat_CCA_filter, gene1 = "nUMI", gene2 = "percent.mito", pch.use = '.')
+GenePlot(object = Nuclei_intexon_seurat_CCA_filter, gene1 = "nUMI", gene2 = "nGene", pch.use = '.')
+
+###check the normalized data distribution
+hist(colSums(Nuclei_intexon_seurat_CCA_filter@scale.data),
+     breaks = 100,
+     main = "Total expression after normalisation",
+     xlab = "Sum of expression")
+
+save( Nuclei_intexon_seurat_CCA_filter , file =  "Nuclei_intronexon_sceset_filtered_CCA_sample_filter.Robj")
+```
+findclusters for grouped samples
+```{r}
+
+save( hvgs , file =  "HVGS_Nuclei_intronexon_sceset_filtered_CCA_sample.Robj")
+## Run t-SNE on the merged data and find clusters
+Nuclei_intexon_seurat_CCA_filter <- RunPCA(object = Nuclei_intexon_seurat_CCA_filter , pc.genes = hvgs , do.print = TRUE, pcs.print = 1:25, 
+    genes.print = 5)
+VizPCA(object = Nuclei_intexon_seurat_CCA_filter, pcs.use = 1:2)
+PCElbowPlot(object = Nuclei_intexon_seurat_CCA_filter )
+
+PCHeatmap(object = Nuclei_intexon_seurat_CCA_filter, pc.use = 1:25, cells.use = 500, do.balanced = TRUE, 
+    label.columns = FALSE, use.full = FALSE)
+
+#
+
+Nuclei_intexon_seurat_CCA_filter <- RunTSNE(object = Nuclei_intexon_seurat_CCA_filter , reduction.use = "cca.aligned", dims.use = 1:15, 
+                  do.fast = TRUE)
+
+Nuclei_intexon_seurat_CCA_filter <- FindClusters(object = Nuclei_intexon_seurat_CCA_filter , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 2 )
+
+
+
+save( Nuclei_intexon_seurat_CCA_filter , file =  "Nuclei_intronexon_sceset_filtered_CCA_clusters.Robj")
+
+
+```
+tsnes of the final clusters
+```{r}
+
+Nuclei_intexon_seurat_CCA_filter <- SetAllIdent(object = Nuclei_intexon_seurat_CCA_filter , id = "res.2")
+TSNEPlot(object = Nuclei_intexon_seurat_CCA_filter, do.label = TRUE)
+
+
+```
+Get an independnet object of Oligodendrocytes and OPCs
+```{r}
+
+# subset and get all the ol linage 
+Nuclei_intexon_seurat_CCA_filter <- SetAllIdent(object = Nuclei_intexon_seurat_CCA_filter , id = "res.2")
+TSNEPlot(object = Nuclei_intexon_seurat_CCA_filter , do.label = TRUE)
+Nuclei_OL.subset <- SubsetData(object = Nuclei_intexon_seurat_CCA_filter , ident.use = c( "17" , "3" , "4" , "6" , "2" , "16" , "0" , "7" , "12"  ))
+
+
+current.cluster.ids <- c( 17 , 3 , 4 , 6 , 2 , 16 , 0 , 7 , 12)
+#new ids
+new.cluster.ids <- c("Ctrl_OPC_nuclei","Ctrl_Oligo3","Ctrl_Oligo4","Ctrl_Oligo5","Ctrl_Oligo2","Ctrl_Oligo8","Ctrl_Oligo1","Ctrl_Oligo6" ,"Ctrl_Oligo7")
+
+Nuclei_OL.subset <- SetAllIdent(object = Nuclei_OL.subset , id = "res.2")
+Nuclei_OL.subset@ident <- plyr::mapvalues(x =Nuclei_OL.subset@ident, from = current.cluster.ids, to = new.cluster.ids)
+TSNEPlot(object = Nuclei_OL.subset, do.label = TRUE, pt.size = 0.2)
+
+Nuclei_OL.pheno <- (cbind (Nuclei_OL.subset@ident , Nuclei_OL.subset@meta.data))
+
+Nuclei_OL.data <- Nuclei_OL.subset@data
+Nuclei_OL.rawdata <- as.matrix(Nuclei_OL.data)
+
+Nuclei_OL.var_genes <- Nuclei_OL.subset@var.genes
+Nuclei_OL.var_genes_filtered <- Nuclei_OL.var_genes[! grepl("MT.",(Nuclei_OL.var_genes))]
+
+celltypes_nuclei <- new.cluster.ids
+
+
+Nuclei_OL.rawdata <- Nuclei_OL.rawdata[,row.names(Nuclei_OL.pheno)]
+```
+Get Oligo9 , Oligo cluster with MHCII class genes
+```{r}
+###we select the microglia cluster ( identify from the differentially expressed genes)
+Microglia.subset <- SubsetData(object = Nuclei_intexon_seurat_CCA_filter , ident.use = c( 15 ))
+
+TSNEPlot(object = Microglia.subset , do.label = TRUE)
+
+Microglia.subset_pca <- FindClusters(object = Microglia.subset, reduction.type = "pca", dims.use = 1:5, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 0.8 )
+
+Microglia.subset_pca <- FindClusters(object = Microglia.subset, reduction.type = "pca", dims.use = 1:5, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 0.2 )
+
+Microglia.subset_pca <- SetAllIdent(object = Microglia.subset_pca , id = "res.0.2")
+TSNEPlot(object = Microglia.subset_pca , do.label = TRUE)
+
+
+###get only the MS
+Microglia.subset_pca <- SetAllIdent(object = Microglia.subset_pca , id = "condition")
+Microglia.MS.subset <- SubsetData(object = Microglia.subset_pca , ident.use = c( "MS" ))
+Microglia.MS.subset <- SetAllIdent(object = Microglia.MS.subset , id = "res.0.2")
+
+
+postscript("Microglia_MS_tsne_2.ps",bg='white',horizontal=F,paper='special',width=8,height=8)
+
+TSNEPlot(object = Microglia.MS.subset , do.label = TRUE)
+
+dev.off()
+
+system(paste("convert -density 200 ","Microglia_MS_tsne_2.ps"," ","Microglia_MS_tsne_2.png",";eog ","Microglia_MS_tsne_2.png",sep=''))
+
+
+postscript("Microglia_MS_tsne_markers_2.ps",bg='white',horizontal=F,paper='special',width=8,height=10)
+
+
+FeaturePlot(object = Microglia.MS.subset , c("PLP1", "CD74","CNP" , "OLIG2"  ,"OLIG1" , "SOX10" , "AIF1" , "PTPRC" ,   "TMEM119" ,  "ITGAM"), cols.use = c("lightgrey","blue"), nCol = 3)
+
+dev.off()
+
+system(paste("convert -density 200 ","Microglia_MS_tsne_markers_2.ps"," ","Microglia_MS_tsne_markers_2.png",";eog ","Microglia_MS_tsne_markers_2.png",sep=''))
+
+
+postscript("Microglia_MS_vln_markers_2.ps",bg='white',horizontal=F,paper='special',width=8,height=10)
+
+
+VlnPlot(  Microglia.MS.subset , features.plot = c("PLP1", "CD74","CNP" , "OLIG2"  ,"OLIG1" , "SOX10" , "AIF1" , "PTPRC" ,  "TMEM119" ,  "ITGAM" ) , nCol = 3)
+
+
+dev.off()
+
+system(paste("convert -density 200 ","Microglia_MS_vln_markers_2.ps"," ","Microglia_MS_vln_markers_2.png",";eog ","Microglia_MS_vln_markers_2.png",sep=''))
+
+```
+Final matrixes with assigned celltypes
+```{r}
+
+
+Nuclei_intexon_seurat_CCA_filter <- AddMetaData(object = Nuclei_intexon_seurat_CCA_filter , metadata = FinalClusters, col.name = "FinalClusters")
+Nuclei_intexon_seurat_CCA_filter <- AddMetaData(object = Nuclei_intexon_seurat_CCA_filter , metadata = SampleID, col.name = "Sample_ID")
+Nuclei_intexon_seurat_CCA_filter <- SetAllIdent(object = Nuclei_intexon_seurat_CCA_filter , id = "FinalClusters")
+
+TSNEPlot(object = Nuclei_intexon_seurat_CCA_filter, do.label = TRUE, pt.size = 0.2)
+
+current.cluster.ids <- c( 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18  , "OL_MiGl" )
+
+
+new.cluster.ids  <- c("Oligo1", "Neuron1","Oligo2","Oligo3","Oligo4","Neuron2","Oligo5","Oligo6","Neuron3","Astrocytes","Endothelial cells","Neuron4","Oligo7","Pericytes","Neuron5","Microglia/Macrophages","Oligo8","OPCs","Immune cells" , "Oligo9")
+
+Nuclei_intexon_seurat_CCA_filter@ident <- plyr::mapvalues(x = Nuclei_intexon_seurat_CCA_filter@ident, from = current.cluster.ids, to = new.cluster.ids)
+TSNEPlot(object =Nuclei_intexon_seurat_CCA_filter, do.label = TRUE, pt.size = 0.2)
+
+
+MSvsCtrl_CCA_tSNEcoords <- Nuclei_intexon_seurat_CCA_filter@dr$tsne@cell.embeddings
+
+saveRDS( MSvsCtrl_CCA_tSNEcoords , "tSNEcoordinates_MSCtrl_CCA_allcelltypes.rds")
+
+MSvsCtrl_CCA_ExpMat <- Nuclei_intexon_seurat_CCA_filter@data
+
+MSvsCtrl_CCA_ExpMat_raw <- Nuclei_intexon_seurat_CCA_filter@raw.data
+
+saveRDS( MSvsCtrl_CCA_ExpMat , "exprMat_MSCtrl_CCA_allcelltypes.rds")
+
+saveRDS( MSvsCtrl_CCA_ExpMat_raw , "exprMat_MSCtrl_CCA_allcelltypes_raw.rds")
+
+
+MSvsCtrl_CCA_Annot <- (cbind( Nuclei_intexon_seurat_CCA_filter@meta.data[1:4] , Nuclei_intexon_seurat_CCA_filter@meta.data[7:9] , Nuclei_intexon_seurat_CCA_filter@meta.data[14] ,  Nuclei_intexon_seurat_CCA_filter@ident))
+
+
+annocolnames <- c("nGene" ,	"nUMI" ,	 "percent.mito" , "condition" , "lesion" , "patient" ,  "Sample" , "Celltype" )
+
+
+colnames(MSvsCtrl_CCA_Annot) <- annocolnames
+
+saveRDS( MSvsCtrl_CCA_Annot , "AnnotMat_MSCtrl_CCA_allcelltypes.rds")
+
+MSvsCtrl_CCA_ExpMat[MSvsCtrl_CCA_ExpMat < mean(MSvsCtrl_CCA_ExpMat)] <- 0
+
+saveRDS( MSvsCtrl_CCA_ExpMat , "exprMat_MSvsCtrl_CCA_filtered_allcelltypes.rds")
+
+
+
+
