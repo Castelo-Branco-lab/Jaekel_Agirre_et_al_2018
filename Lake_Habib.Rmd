@@ -1,0 +1,93 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+load('/data/proj/GCB_EA/kawai/Lake/Lake_OliOPC_up.Robj')
+load('/data/proj/GCB_EA/kawai/Habib/Habib_OliOPC.Robj')
+
+
+Habib<-FindVariableGenes(object = Habib_OliOPC, mean.function = ExpMean, dispersion.function = LogVMR, 
+    x.low.cutoff = 0.0125, x.high.cutoff = 4, y.cutoff = 0.5)
+
+Lake<-FindVariableGenes(object = Lake_OliOPC, mean.function = ExpMean, dispersion.function = LogVMR, 
+    x.low.cutoff = 0.0125, x.high.cutoff = 4, y.cutoff = 0.5)
+
+
+Lake_gene<-head(rownames(Lake@hvg.info),1000)
+Habib_gene<-head(rownames(Habib@hvg.info),1000)
+gene.use<-union(Lake_gene,Habib_gene)
+gene.use<-unique(gene.use) #1930
+gene.use<-c(gene.use)
+length(gene.use)
+
+```
+
+
+```{r}
+colnames(Lake@meta.data)[3:ncol(Lake@meta.data)]<-paste0('Lake_',colnames(Lake@meta.data)[3:ncol(Lake@meta.data)])
+
+colnames(Habib@meta.data)[3:ncol(Habib@meta.data)]<-paste0('Habib_',colnames(Habib@meta.data)[3:ncol(Habib@meta.data)])
+
+Dataset<-data.frame(row.names=rownames(Lake@meta.data),Dataset=c(replicate(nrow(Lake@meta.data),'Lake et al. (2018)')))
+Lake<-AddMetaData(object = Lake,col.name = Dataset,metadata = Dataset)
+Dataset<-data.frame(row.names=rownames(Habib_OliOPC@meta.data),Dataset=c(replicate(nrow(Habib@meta.data),'Habib et al., (2018)')))
+Habib<-AddMetaData(object = Habib,col.name = Dataset,metadata = Dataset)
+
+Habib_Lake<-RunCCA(Habib, Lake, num.cc = 30,genes.use = gene.use)
+
+H_L_CCA_to_beused<-MetageneBicorPlot(Habib_Lake, grouping.var ='Dataset' , dims.eval = 1:30, display.progress = TRUE,smooth = FALSE)
+
+save('H_L_CCA_to_beused',file='H_L_CCA_to_beused.Robj')
+save('Habib_Lake',file='Habib_Lake.Robj')
+
+DimHeatmap(object = Habib_Lake, reduction.type = "cca", cells.use = 500, 
+    dim.use = 10:20, do.balanced = TRUE)
+```
+
+
+#choose CC up to 13
+```{r}
+
+Habib_Lake<-CalcVarExpRatio(object = Habib_Lake, reduction.type = "pca", grouping.var = "Dataset", dims.use = 1:13)
+
+discarded_Habib_Lake<- SubsetData(Habib_Lake, subset.name = "var.ratio.pca", accept.high = 0.5)
+discarded_cells<-c()
+discarded_cells_Habib_Lake <- c(discarded_cells, rownames(discarded_Habib_Lake@meta.data))
+
+all_Habib_Lake<-Habib_Lake
+
+Habib_Lake<-SubsetData(object = Habib_Lake, subset.name = "var.ratio.pca", accept.low = 0.5)
+
+dim(Habib_Lake@scale.data) #33905 5797
+dim(all_Habib_Lake@scale.data) #34465 6336
+
+Habib_Lake<-AlignSubspace(Habib_Lake, reduction.type = "cca", grouping.var = "Dataset", dims.align = 1:13)
+
+Habib_Lake<-RunTSNE(Habib_Lake, reduction.use = "cca.aligned", dims.use = 1:13,seed.use=1)
+
+Habib_Lake <- FindClusters(Habib_Lake, reduction.type = "cca.aligned", resolution = 0.6, dims.use = 1:13)
+save('Habib_Lake',file='Habib_Lake.Robj')
+
+#1,8,10 -> OPC res1
+TSNEPlot(Habib_Lake,do.label = TRUE,do.return=TRUE)
+TSNEPlot(Habib_Lake,do.label = TRUE,do.return=TRUE,group.by='res.1')
+TSNEPlot(Habib_Lake,do.label = TRUE,do.return=TRUE,group.by='Dataset')
+FeaturePlot(Habib_Lake,features.plot = 'OPALIN',cols.use = c('grey','red'))
+FeatureHeatmap(Habib_Lake,features.plot = 'OPALIN',group.by = 'Dataset')
+Habib_Lake@meta.data$
+```
+
+
+```{r}
+L_H_res1<-data.frame(cell =rownames(Habib_Lake@meta.data),L_H_res1=Habib_Lake@meta.data$res.1)
+#0 OLI1    #1 OLI2   #2 OLI3      #3  OLI4      #4  OLI5      #5  OLI6      #6 OLI7     #7 OPC      #8 OLI8     #9 OLI9      
+res1=c(0,1,2,3,4,5,6,7,8,9,10,11)
+assigned=c('OLI1','OLI2','OLI3','OLI4','OLI5','OLI6','OLI7','OPC1','OLI8','OLI9')
+
+H_J_res1$H_J_res1assigned<-plyr::mapvalues(x = H_J_res1$H_J_res1, from = res1, to = assigned)
+save('L_H_res1',file='L_H_res1.Robj')
+```
+
+```
