@@ -1,0 +1,268 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# HVG
+```{r}
+library(Seurat)
+load('/data/proj/GCB_EA/kawai/Lake/Lake_OliOPC_up.Robj')
+load('/data/proj/GCB_EA/kawai/Habib/Habib_OliOPC.Robj')
+
+EA<-Nuclei_OL_CTRL_roche.subset
+
+EA<-SetAllIdent(EA,id='Celltype_res4')
+id_use=unique(EA@meta.data$Celltype_res4)
+id_use=id_use[id_use!= 'OligoM']
+id_use=id_use[id_use!= 'Astrocytes_Oligo']
+EA<-SubsetData(EA,ident.use =id_use )
+
+Habib<-FindVariableGenes(object = Habib_OliOPC, mean.function = ExpMean, dispersion.function = LogVMR, 
+    x.low.cutoff = 0.0125, x.high.cutoff = 4, y.cutoff = 0.5)
+
+Lake<-FindVariableGenes(object = Lake_OliOPC, mean.function = ExpMean, dispersion.function = LogVMR, 
+    x.low.cutoff = 0.0125, x.high.cutoff = 4, y.cutoff = 0.5)
+
+EA<-FindVariableGenes(object = EA, mean.function = ExpMean, dispersion.function = LogVMR, 
+    x.low.cutoff = 0.0125, x.high.cutoff = 4, y.cutoff = 0.5)
+
+length(Lake@var.genes) #12040
+length(EA@var.genes) #6667
+length(Habib@var.genes) #2696
+Lake_hvg.info<-Lake@hvg.info
+EA_hvg.info<-EA@hvg.info
+Habib_hvg.info<-Habib@hvg.info
+
+EA_genes<-head(rownames(EA@hvg.info),1000)
+Lake_gene<-head(rownames(Lake@hvg.info),1000)
+Habib_gene<-head(rownames(Habib@hvg.info),1000)
+gene.use<-union(Lake_gene,EA_genes)
+gene.use<-union(EA_genes,Habib_gene)
+gene.use<-unique(gene.use) #1857
+gene.use<-c(gene.use)
+length(gene.use)
+
+```
+
+# Integrate datasets
+```{r}
+
+colnames(Lake@meta.data)[3:ncol(Lake@meta.data)]<-paste0('Lake_',colnames(Lake@meta.data)[3:ncol(Lake@meta.data)])
+colnames(EA@meta.data)[3:ncol(EA@meta.data)]<-paste0('Jakelnuclei_',colnames(EA@meta.data)[3:ncol(EA@meta.data)])
+colnames(Habib@meta.data)[3:ncol(Habib@meta.data)]<-paste0('Habib_',colnames(Habib@meta.data)[3:ncol(Habib@meta.data)])
+
+Dataset<-data.frame(row.names=rownames(Lake@meta.data),Dataset=c(replicate(nrow(Lake@meta.data),'Lake et al. (2018)')))
+Lake<-AddMetaData(object = Lake,col.name = Dataset,metadata = Dataset)
+Dataset<-data.frame(row.names=rownames(EA@meta.data),Dataset=c(replicate(nrow(EA@meta.data),'J\uE4kel et al. (manuscript)')))
+EA<-AddMetaData(object = EA,col.name = Dataset,metadata = Dataset)
+Dataset<-data.frame(row.names=rownames(Habib_OliOPC@meta.data),Dataset=c(replicate(nrow(Habib@meta.data),'Habib et al. (2017)')))
+Habib<-AddMetaData(object = Habib,col.name = Dataset,metadata = Dataset)
+
+D<-list(Lake,EA,Habib)
+homo<-NULL
+Ns <- seq_len(length(D))
+while(length(Ns) > 0) {
+  if (is.null(homo)) {
+    homo <-RunCCA(object=D[[Ns[1]]], object2 = D[[Ns[2]]],genes.use=gene.use,num.cc = 30)
+    Ns <- Ns[-(1:2)]
+    print(Ns)
+  } else {
+    homo <- RunCCA(object=homo, object2 = D[[Ns[1]]],genes.use=gene.use,num.cc = 30)
+    Ns <- Ns[-1]
+    print(Ns)
+  }
+}
+
+CCA_tobeused_JLH<-MetageneBicorPlot(homo, grouping.var ='Dataset' , dims.eval = 1:30, display.progress = TRUE,smooth = FALSE)
+
+DimHeatmap(object = homo, reduction.type = "cca", cells.use = 500, 
+    dim.use = 1:15, do.balanced = TRUE)
+```
+
+
+
+# Use CCA of 11
+```{r}
+
+homo<-CalcVarExpRatio(object = homo, reduction.type = "pca", grouping.var = "Dataset", dims.use = 1:11)
+
+discarded_homo<- SubsetData(homo, subset.name = "var.ratio.pca", accept.high = 0.5)
+discarded_cells<-c()
+discarded_cells_homo <- c(discarded_cells, rownames(discarded_homo@meta.data))
+
+all_homo<-homo
+
+homo<-SubsetData(object = homo, subset.name = "var.ratio.pca", accept.low = 0.5)
+
+dim(homo@scale.data) #38788 10240
+dim(all_homo@scale.data) #38788 10563
+
+homo<-AlignSubspace(homo, reduction.type = "cca", grouping.var = "Dataset", dims.align = 1:11)
+
+homo<-RunTSNE(homo, reduction.use = "cca.aligned", dims.use = 1:11,seed.use=1)
+
+
+homo <- FindClusters(homo, reduction.type = "cca.aligned", resolution = 1, dims.use = 1:11)
+homo <- FindClusters(homo, reduction.type = "cca.aligned", resolution = 0.6, dims.use = 1:11)
+saveRDS(homo,file='../homo/homo_oct18.rds')
+
+```
+
+
+# graph b
+
+```{r}
+VlnPlot(homo,features.plot = 'nUMI',group.by='Dataset',point.size.use = 0.01)
+
+VlnPlot(homo,features.plot = 'nGene',group.by='Dataset',point.size.use = 0.01)
+
+```
+
+# graph d - Dataset
+```{r}
+homo<-SetAllIdent(homo,id='Dataset')
+TSNEPlot(homo,group.by='Dataset',pt.size = 0.5)
+```
+
+
+#graph d - SampleID
+```{r}
+Lake<-SetAllIdent(homo,id = 'Dataset')
+Lake<-SubsetData(Lake,ident.use='Lake et al. (2018)')
+Lake<-data.frame(row.names=rownames(Lake@meta.data),SampleID=Lake@meta.data$Lake_Patient.UMB.)
+J<-SetAllIdent(homo,id = 'Dataset')
+J<-SubsetData(J,ident.use='J\uE4kel et al. (manuscript)')
+J<-data.frame(row.names=rownames(J@meta.data),SampleID=J@meta.data$EAnuclei_Patient)
+Habib<-SetAllIdent(homo,id='Dataset')
+Habib<-SubsetData(Habib,ident.use='Habib et al. (2017)')
+Habib<-data.frame(row.names=rownames(Habib@meta.data),SampleID=replicate(nrow(Habib@meta.data),'Habib\'s donors'))
+
+SampleID<-rbind(Lake,J,Habib)
+homo<-AddMetaData(object=homo,metadata = SampleID,col.name = colnames(SampleID))
+TSNEPlot(homo,group.by='SampleID',pt.size = 0.5)
+```
+
+# graph d - brain region 
+```{r}
+Lake<-SetAllIdent(homo,id = 'Dataset')
+Lake<-SubsetData(Lake,ident.use='Lake et al. (2018)')
+Lake<-data.frame(row.names=rownames(Lake@meta.data),SampleID=Lake@meta.data$Lake_origDataset)
+J<-SetAllIdent(homo,id = 'Dataset')
+J<-SubsetData(Ja,ident.use='J\uE4kel et al. (manuscript)')
+J<-data.frame(row.names=rownames(J@meta.data),SampleID=replicate(nrow(J@meta.data),'WM'))
+Habib<-SetAllIdent(homo,id='Dataset')
+Habib<-SubsetData(Habib,ident.use='Habib et al. (2017)')
+Habib<-data.frame(row.names=rownames(Habib@meta.data),SampleID=Habib@meta.data$Habib_Region)
+
+SampleID<-rbind(Lake,J,Habib)
+colnames(SampleID)<-'SampleRegion'
+homo<-AddMetaData(object=homo,metadata = SampleID,col.name = 'SampleRegion')
+TSNEPlot(homo,group.by='SampleRegion',pt.size = 0.5)
+
+```
+
+
+# graph e - res.1
+```{r}
+TSNEPlot(homo,group.by='res.1',pt.size = 0.5)
+```
+
+#graph e - res.1 identified in Fig.2
+```{r}
+
+OL_palette <- c( "#FF61C3", "#F8766D" ,"#D39200", "#619CFF" ,"#93AA00" ,"#DB72FB" ,"#00BA38" ,"#00B9E3" ,"#00C19F", "#ABABAB") #ABABAB - grey #FFFFF white
+
+OL_clusters_order  <- c("OPCs" , "COPs", "ImOlGs","Oligo1","Oligo2"  ,"Oligo3","Oligo4","Oligo5" , "Oligo6", ' Lake et al. (2018), Habib et al. (2017)')
+
+J<-data.frame(cellnames=names(Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@ident),finalcelltype=Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@ident)
+
+tmp<-data.frame(cellnames=rownames(homo@meta.data),dataset=homo@meta.data$Dataset)
+
+tmp<-dplyr::left_join(tmp,J)
+
+rownames(tmp)<-tmp$cellnames
+tmp<-tmp[,-2,drop=FALSE]
+tmp$finalcelltype<-as.character(tmp$finalcelltype)
+
+
+tmp$finalcelltype[is.na(tmp$finalcelltype)] <- ' Lake et al. (2018), Habib et al. (2017)'
+
+homo<-AddMetaData(object=homo,metadata = tmp,col.name = colnames(tmp))
+
+
+homo@meta.data$finalcelltype<-factor(x = homo@meta.data$finalcelltype, levels = OL_clusters_order )
+
+TSNEPlot(homo,group.by='finalcelltype',pt.size = 0.15,do.label = FALSE) + scale_color_manual(values = OL_palette)
+
+
+
+```
+
+
+#graph f and g
+```{r}
+library(viridis)
+col.pal<-viridis_pal()(10)
+
+Lake_remye<-c('NEU4','DSCAM','PDGFRA','CSPG4','VCAN','SOX6','ITPR2','GRIK1','GRIN2B','GRIK2','NRG3','DPP10','MEF2C','RBFOX1','TENM2','SYT1','CNTNAP2','GRIN2A','GRIN1','NRXN2','PCDH9','QKI','MBP','MOG','PLP1')
+
+homo<-SetAllIdent(homo,id = 'res.1')
+homoavg<-AverageExpression(homo,return.seurat = TRUE)
+
+heatmapdata<-homoavg@scale.data
+heatmapdata<-heatmapdata[rownames(heatmapdata) %in% Lake_remye,]
+
+heatmapdata<-heatmapdata[match(Lake_remye,row.names(heatmapdata)),]
+anno_row<-data.frame(row.names=Lake_remye,Trajectory_annotation=c(replicate(10,'OPC'),replicate(10,'iOli'),replicate(5,'mOli')))
+
+pheatmap::pheatmap(heatmapdata, scale = 'none', cluster_rows = FALSE, cluster_cols = TRUE, show_rownames = TRUE,show_colnames = TRUE,color = col.pal,cellheight = 5,fontsize_row = 5,annotation_row = anno_row)
+
+#graph g
+DoHeatmap(homo,group.by = 'res.1',genes.use = Lake_remye,cex.col = 0,slim.col.label=TRUE,group.cex=8,cex.row=8,group.label.rot=TRUE)+scale_fill_viridis()
+
+```
+
+#graph h
+```{r}
+library(stringr)
+
+
+homo<-SetAllIdent(homo,id='res.1')
+composition_data<-homo@meta.data
+composition_data<-data.frame(res1=composition_data$res.1,Dataset=composition_data$Dataset)
+composition_data$Dataset<-as.character(composition_data$Dataset)
+
+Lake_com<-sapply(levels(composition_data$res1), function(x){sum(str_count(composition_data$res1[composition_data$res1==x & composition_data$Dataset=='Lake et al. (2018)']))})
+EA_com<-sapply(levels(composition_data$res1), function(x){sum(str_count(composition_data$res1[composition_data$res1==x & composition_data$Dataset=='J\uE4kel et al. (manuscript)']))})
+Habib_com<-sapply(levels(composition_data$res1), function(x){sum(str_count(composition_data$res1[composition_data$res1==x & composition_data$Dataset=='Habib et al. (2017)']))})
+
+Lake_com<-data.frame(res1=levels(composition_data$res1),counts=Lake_com)
+Lake_com$Dataset<-'Lake et al. (2018)'
+EA_com<-data.frame(res1=levels(composition_data$res1),counts=EA_com)
+EA_com$Dataset<-'J\uE4kel et al. (manuscript)'
+Habib_com<-data.frame(res1=levels(composition_data$res1),counts=Habib_com)
+Habib_com$Dataset<-'Habib et al. (2017)'
+composition_data<-rbind(Lake_com,EA_com,Habib_com)
+composition_data$res1<-factor(composition_data$res1,levels=c(0,1,2,3,4,5,6,7,8,9,10))
+
+datacomposition_cluster_res1_wwMT<-ggplot(data=composition_data,aes(x=res1,y=counts,fill=Dataset))+
+  geom_bar(stat = "identity",position='fill')+ 
+  labs(x = 'Cluster',y='Composition')+
+  theme(axis.text=element_text(size=9),axis.title=element_text(size=9))+scale_fill_manual(values =c("#F8766D","#7CAE00",'#00BFC4'))
+
+
+```
+
+# DE in clusters
+```{r}
+clu<-readRDS('../Fish_mouse_oct18.rds')
+
+cluster<-clu %>% group_by(res1cluster)
+cluster<-cluster[cluster$Fish_p_val<=0.05,]
+cluster<-cluster[cluster$Fish_FDR<=0.05,]
+cluster<-cluster[cluster$`Habib et al. (2017)_avg_logFC`>=0.5,]
+cluster<-cluster[cluster$`Lake et al. (2018)_avg_logFC`>=0.5,]
+cluster<-cluster[cluster$`Jäkel et al. (manuscript)_avg_logFC`>=0.5,]
+write.table(clu,file='../PAPER_FIGURE_oct18/FISH_res1_JLH_oct18.csv')
+
+```
