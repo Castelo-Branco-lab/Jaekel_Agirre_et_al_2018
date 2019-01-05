@@ -1,0 +1,482 @@
+---
+title: "Processing of the data from: Altered oligodendrocyte heterogeneity in Multiple sclerosis revealed by single nuclei RNA sequencing Jaëkel, Agirre et al. 2019"
+output: html_notebook
+---
+
+
+```{r}
+library(scater)
+library(Seurat)
+library(velocyto.R)
+```
+load loom files fro velocyto
+Load loom data
+```{r}
+# 
+ldat_052 <- read.loom.matrices("10X_17_052_grch38.loom")
+ldat_053 <- read.loom.matrices("10X_17_053_grch38.loom")
+ldat_054 <- read.loom.matrices("10X_17_054_grch38.loom")
+ldat_055 <- read.loom.matrices("10X_17_055_grch38.loom")
+ldat_056 <- read.loom.matrices("10X_17_056_grch38.loom")
+ldat_057 <- read.loom.matrices("10X_17_057_grch38.loom")
+ldat_058 <- read.loom.matrices("10X_17_058_grch38.loom")
+ldat_059 <- read.loom.matrices("10X_17_059_grch38.loom")
+ldat_060 <- read.loom.matrices("10X_17_060_grch38.loom")
+ldat_061 <- read.loom.matrices("10X_17_061_grch38.loom")
+ldat_062 <- read.loom.matrices("10X_17_062_grch38.loom")
+ldat_063 <- read.loom.matrices("10X_17_063_grch38.loom")
+ldat_064 <- read.loom.matrices("10X_17_064_grch38.loom")
+ldat_065 <- read.loom.matrices("10X_17_065_grch38.loom")
+ldat_066 <- read.loom.matrices("10X_17_066_grch38.loom")
+ldat_067 <- read.loom.matrices("10X_17_067_grch38.loom")
+ldat_068 <- read.loom.matrices("10X_17_068_grch38.loom")
+ldat_069 <- read.loom.matrices("10X_17_069_grch38.loom")
+ldat_070 <- read.loom.matrices("10X_17_070_grch38.loom")
+ldat_071 <- read.loom.matrices("10X_17_071_grch38.loom")
+
+
+
+nuclei_mat <- as.matrix(cbind(ldat_052$spliced , ldat_053$spliced , ldat_054$spliced , ldat_055$spliced , ldat_056$spliced , ldat_057$spliced , ldat_058$spliced , ldat_059$spliced , ldat_060$spliced , ldat_061$spliced , ldat_062$spliced , ldat_063$spliced , ldat_064$spliced , ldat_065$spliced , ldat_066$spliced , ldat_067$spliced , ldat_068$spliced , ldat_069$spliced , ldat_070$spliced , ldat_071$spliced ) )
+                        
+
+save( nuclei_mat , file = "Nuclei_spliced_roche.Robj")
+
+
+nuclei_unspliced_mat <- as.matrix(cbind(ldat_052$unspliced , ldat_053$unspliced , ldat_054$unspliced , ldat_055$unspliced , ldat_056$unspliced , ldat_057$unspliced , ldat_058$unspliced , ldat_059$unspliced , ldat_060$unspliced , ldat_061$unspliced , ldat_062$unspliced , ldat_063$unspliced , ldat_064$unspliced , ldat_065$unspliced , ldat_066$unspliced , ldat_067$unspliced , ldat_068$unspliced , ldat_069$unspliced , ldat_070$unspliced , ldat_071$unspliced  ))  
+
+save( nuclei_unspliced_mat , file =  "Nuclei_unspliced_roche.Robj")
+
+
+```
+
+
+load the intronexon matrix
+```{r }
+
+load("Nuclei_spliced_roche.Robj")
+load("Nuclei_unspliced_roche.Robj")
+
+
+rownames(nuclei_mat) <- make.names( rownames(nuclei_mat) , unique=T )
+rownames(nuclei_unspliced_mat) <- make.names( rownames(nuclei_unspliced_mat) , unique=T )
+
+matlist <- list(nuclei_mat, nuclei_unspliced_mat)
+nuclei_combmat <- matlist[[1]]+matlist[[2]]
+
+
+
+save( nuclei_combmat , file =  "Nuclei_intronexon_roche.Robj")
+
+
+```
+create an annotation file form Cellranger output info: filtered barcodes fro meach sample from cellranger
+```{bash }
+
+
+ awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_053_roche_grch38:"a[1]"x\tCO28\tCO28\tCtrl\tCtrl\tCO28" }}'  barcodes_052_roche_filtered_samples.tsv > barcodes_052_roche_filtered_samples_3.tsv
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_054_roche_grch38:"a[1]"x\tCO25\tCO25\tCtrl\tCtrl\tCO25" }}'  barcodes_053_roche_filtered_samples.tsv > barcodes_053_roche_filtered_samples_3.tsv 
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_055_roche_grch38:"a[1]"x\tMS176_NAWM\tMS176_NAWM\tMS\tNAWM\tMS176" }}'  barcodes_054_roche_filtered_samples.tsv > barcodes_054_roche_filtered_samples_3.tsv 
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_056_roche_grch38:"a[1]"x\tMS176_RM\tMS176_RM\tMS\tRM\tMS176" }}'  barcodes_055_roche_filtered_samples.tsv > barcodes_055_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_056_roche_grch38_4:"a[1]"x\tMS176_CI\tMS176_CI\tMS\tCI\tMS176" }}'  barcodes_056_roche_filtered_samples.tsv > barcodes_056_roche_filtered_samples_3.tsv 
+ 
+
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_057_roche_grch38:"a[1]"x\tMS176_CA\tMS176_CA\tMS\tCA\tMS176" }}'  barcodes_057_roche_filtered_samples.tsv > barcodes_057_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_058_roche_grch38:"a[1]"x\tCO39\tCO39\tCtrl\tCtrl\tCO39" }}'  barcodes_058_roche_filtered_samples.tsv > barcodes_058_roche_filtered_samples_3.tsv 
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_059_roche_grch38:"a[1]"x\tCO14\tCO14\tCtrl\tCtrl\tCO14" }}'  barcodes_059_roche_filtered_samples.tsv > barcodes_059_roche_filtered_samples_3.tsv 
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_060_roche_grch38:"a[1]"x\tMS242_CA5\tMS242_CA5\tMS\tCA\tMS242" }}'  barcodes_060_roche_filtered_samples.tsv > barcodes_060_roche_filtered_samples_3.tsv 
+ 
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_061_roche_grch38:"a[1]"x\tMS242_CI\tMS242_CI\tMS\tCI\tMS242" }}'  barcodes_061_roche_filtered_samples.tsv > barcodes_061_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_062_roche_grch38:"a[1]"x\tMS242_CA2\tMS242_CA2\tMS\tCA\tMS242" }}'  barcodes_062_roche_filtered_samples.tsv > barcodes_062_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_063_roche_grch38:"a[1]"x\tMS242_RM\tMS242_RM\tMS\tRM\tMS242" }}'  barcodes_063_roche_filtered_samples.tsv > barcodes_063_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_064_roche_grch38:"a[1]"x\tSD48/16\tSD48/16\tCtrl\tCtrl\tSD48/16" }}'  barcodes_064_roche_filtered_samples.tsv > barcodes_064_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_065_roche_grch38:"a[1]"x\tMS122_NAWM\tMS122_NAWM\tMS\tNAWM\tMS122" }}'  barcodes_065_roche_filtered_samples.tsv > barcodes_065_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_066_roche_grch38:"a[1]"x\tMS122_CI\tMS122_CI\tMS\tCI\tMS122" }}'  barcodes_066_roche_filtered_samples.tsv > barcodes_066_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_067_roche_grch38:"a[1]"x\tMS122_A\tMS122_A\tMS\tA\tMS122" }}'  barcodes_067_roche_filtered_samples.tsv > barcodes_067_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_068_roche_grch38:"a[1]"x\tMS121_NAWM\tMS121_NAWM\tMS\tNAWM\tMS121" }}'  barcodes_068_roche_filtered_samples.tsv > barcodes_068_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_069_roche_grch38:"a[1]"x\tMS121_A3\tMS121_A3\tMS\tA\tMS121" }}'  barcodes_069_roche_filtered_samples.tsv > barcodes_069_roche_filtered_samples_3.tsv 
+
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_070_roche_grch38:"a[1]"x\tMS121_A2\tMS121_A2\tMS\tA\tMS121" }}'  barcodes_070_roche_filtered_samples.tsv > barcodes_070_roche_filtered_samples_3.tsv 
+
+awk '{ split($1,a,"-") ; if ( a[2] == 1 ) { print "10X_17_071_roche_grch38:"a[1]"x\tMS121_CA\tMS121_CA\tMS\tCA\tMS121" }}'  barcodes_071_roche_filtered_samples.tsv > barcodes_071_roche_filtered_samples_3.tsv 
+
+########################################################################
+cat *3.tsv  > 10X_Nuclei_roche_networkAnnotableFile_corrected.txt
+
+```
+QC and processing of the UMI matrix
+```{r }
+networkAnnotableFile <- read.table("10X_Nuclei_roche_networkAnnotableFile_corrected.txt")
+
+header <- c( "cell" , "original" , "sample" , "condition" , "lesion" , "patient" )
+colnames(networkAnnotableFile) <- header
+
+table(grepl("MALAT1",rownames(nuclei_combmat)))
+nuclei_combmat <- nuclei_combmat[! grepl("MALAT1",rownames(nuclei_combmat)),]
+
+table(grepl("XIST",rownames(nuclei_combmat)))
+nuclei_combmat <- nuclei_combmat[! grepl("XIST",rownames(nuclei_combmat)),]
+
+
+sceset_intronexon <- SingleCellExperiment(
+    assays = list(counts = nuclei_combmat ), 
+    colData = networkAnnotableFile
+)
+
+
+
+keep_feature <- rowSums(counts(sceset_intronexon) > 0) > 0
+sceset_intronexon <- sceset_intronexon[keep_feature,]
+
+is.mito <- grepl("^MT.", rownames(sceset_intronexon))
+summary(is.mito)
+#there is  mitochondrial
+sceset_intronexon <- calculateQCMetrics(sceset_intronexon , feature_controls=list( Mt=is.mito)  )
+
+ave.counts <- calcAverage(sceset_intronexon)
+hist(log10(ave.counts), breaks=100, main="", col="grey80", 
+    xlab=expression(Log[10]~"average count"))
+
+
+rowData(sceset_intronexon)$ave.count <- ave.counts
+to.keep <- ave.counts > 0
+sceset_intronexon <- sceset_intronexon[to.keep,]
+summary(to.keep)
+
+
+
+save( sceset_intronexon , file =  "Nuclei_intronexon_sceset.Robj")
+
+
+```
+# Remove cells with total transcript count below 500
+```{r }
+summary(sceset_intronexon$total_counts)
+
+hist(sceset_intronexon$total_counts, 100)
+abline(v = 300, col = "red", lwd = 2)
+
+summary(sceset_intronexon$total_features)
+
+hist(sceset_intronexon$total_features, 100)
+abline(v = 200, col = "red", lwd = 2)
+
+
+sceset_intronexon <- sceset_intronexon[, sceset_intronexon$total_counts > 300]
+sceset_intronexon <- sceset_intronexon[, sceset_intronexon$total_features > 200]
+
+dim(sceset_intronexon)
+```
+## Exclude genes that don't have a count above 1 in at least 2 cells
+```{r }
+filter_genes <- apply(counts(sceset_intronexon), 1, function(x) length(x[x >= 1]) >= 2)
+sceset_intronexon <- sceset_intronexon[filter_genes, ]
+dim(sceset_intronexon)
+
+save( sceset_intronexon , file =  "Nuclei_intronexon_sceset_filtered.Robj")
+
+```
+Create two objects: one where all the samples are gonna be trated separatelly and a common one for sup.fig5
+
+All samples together:
+```{r}
+sces_together <- as.matrix(counts(sceset_intronexon))
+
+nuclei_together_seurat <- CreateSeuratObject(raw.data = sces_together , 
+                          min.cells = 3, min.genes = 200, project = "MSCtrl")
+ 
+
+
+mito.genes <- grep(pattern = "^MT.", x = rownames(x = nuclei_together_seurat@data), value = TRUE)
+
+percent.mito <- Matrix::colSums(nuclei_together_seurat@raw.data[mito.genes, ])/Matrix::colSums(nuclei_together_seurat@raw.data)
+
+nuclei_together_seurat <- AddMetaData(object = nuclei_together_seurat, metadata = percent.mito, col.name = "percent.mito")
+
+
+annotation_roche <- read.table("10X_Nuclei_roche_networkAnnotableFile_corrected_header.txt", stringsAsFactors=F)
+
+nuclei_together_seurat <- AddMetaData(object = nuclei_together_seurat , metadata = annotation_roche, col.name = "original")  
+nuclei_together_seurat <- AddMetaData(object = nuclei_together_seurat , metadata = annotation_roche, col.name = "sample")  
+nuclei_together_seurat <- AddMetaData(object = nuclei_together_seurat , metadata = annotation_roche , col.name = "condition")  
+nuclei_together_seurat <- AddMetaData( object = nuclei_together_seurat , metadata = annotation_roche , col.name = "lesion" )
+nuclei_together_seurat <- AddMetaData( object = nuclei_together_seurat , metadata = annotation_roche , col.name = "patient" )
+
+
+
+Nuclei_intexon_seurat_filter <- FilterCells(object = nuclei_together_seurat, subset.names = c("nGene" , "percent.mito"),
+    low.thresholds = c(200, -Inf), high.thresholds = c(3500, 0.20))
+
+#write.table( Nuclei_intexon_seurat@meta.data , file =  "/media/eneritz/Elements1/Nuclei_MS/uppmax_calc/Nuclei_intronexon_seurat_meta-data.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+ Nuclei_intexon_seurat_norm<-NormalizeData(object = Nuclei_intexon_seurat_filter , normalization.method = "LogNormalize", scale.factor = 10000)
+
+ Nuclei_intexon_seurat_norm <- ScaleData( Nuclei_intexon_seurat_norm, vars.to.regress =c("nUMI" , "percent.mito"  ), display.progress = FALSE)
+ 
+Nuclei_intexon_seurat_norm <- FindVariableGenes(object =Nuclei_intexon_seurat_norm , do.plot = F )
+
+
+
+nuclei_together_seurat  <- Nuclei_intexon_seurat_norm
+
+nuclei_together_seurat <- SetAllIdent(object = nuclei_together_seurat , id = "patient")
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 1 , point.size.use = 0.05 ) 
+ 
+nuclei_together_seurat <- SetAllIdent(object = nuclei_together_seurat , id = "lesion")
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 1 , point.size.use = 0.5 ) 
+
+
+par(mfrow = c(1, 2))
+GenePlot(object = nuclei_together_seurat , gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = nuclei_together_seurat , gene1 = "nUMI", gene2 = "nGene")
+
+nuclei_together_seurat <- SetAllIdent(object = nuclei_together_seurat , id = "sample")
+
+
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI", "percent.mito"), nCol = 3 , point.size.use = 1) 
+ 
+par(mfrow = c(1, 2))
+GenePlot(object = nuclei_together_seurat , gene1 = "nUMI", gene2 = "percent.mito")
+GenePlot(object = nuclei_together_seurat , gene1 = "nUMI", gene2 = "nGene")
+
+save( nuclei_together_seurat , file =  "Nuclei_togetherQC_intronexon_sceset_roche_191118.Robj")
+###rebuttal figures:
+Roche_seq_QC_vioplot_patient.eps
+Roche_seq_QC_vioplot_patient_2.eps
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI"), nCol = 1 , point.size.use = 0.02 ) 
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI"), nCol = 1 , point.size.use = 0 ) 
+Roche_seq_QC_vioplot_patient.eps
+Roche_seq_QC_vioplot_patient_2.eps
+
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI"), nCol = 1 , point.size.use = 0.02 , x.lab.rot =  T) 
+
+VlnPlot(object = nuclei_together_seurat , features.plot = c("nGene", "nUMI"), nCol = 1 , point.size.use = 0 , x.lab.rot =  T) 
+
+Roche_seq_QC_vioplot_sample.eps
+Roche_seq_QC_vioplot_sample_2.eps
+#1210x744
+```
+PCA clustering supplementary figure7 : all samples together without CCA
+```{r}
+#PCA AND CLUSTERING WITHOUT REGRESS OUT
+
+Nuclei_intexon_seurat_normAll <- RunPCA(object = nuclei_together_seurat , pc.genes = nuclei_together_seurat@var.genes, pcs.compute = 20, pcs.print = 1:10, maxit = 500, weight.by.var = FALSE)
+
+PrintPCA(object = Nuclei_intexon_seurat_normAll, pcs.print = 1:10, genes.print = 5, use.full = FALSE)
+
+VizPCA(object = Nuclei_intexon_seurat_normAll, pcs.use = 1:10)
+
+
+PCHeatmap(object = Nuclei_intexon_seurat_normAll, pc.use = 1:15, cells.use = 500, do.balanced = TRUE, 
+    label.columns = FALSE, use.full = FALSE)
+
+PCElbowPlot(object = Nuclei_intexon_seurat_normAll)
+
+Nuclei_intexon_seurat_normAll  <- FindClusters(object = Nuclei_intexon_seurat_normAll, reduction.type = "pca", dims.use = 1:20, 
+			  resolution = 4 , print.output = 0, save.SNN = TRUE , force.recalc = TRUE )
+
+Nuclei_intexon_seurat_normAll  <- FindClusters(object = Nuclei_intexon_seurat_normAll, reduction.type = "pca", dims.use = 1:20, 
+			  resolution = 2 , print.output = 0, save.SNN = TRUE , force.recalc = TRUE )
+
+Nuclei_intexon_seurat_normAll  <- FindClusters(object = Nuclei_intexon_seurat_normAll, reduction.type = "pca", dims.use = 1:20, 
+			  resolution = 0.8 , print.output = 0, save.SNN = TRUE , force.recalc = TRUE )
+
+save( Nuclei_intexon_seurat_normAll , file =  "/proj/uppstore2017150/private/eneritz/roche18/Nuclei_intronexon_sceset_roche_PCA_191118.Robj")
+
+```
+
+dimension reduction
+```{r}
+Nuclei_intexon_seurat_normAll <- RunTSNE(object = Nuclei_intexon_seurat_normAll , dims.use = 1:20, do.fast = TRUE)
+```
+CLUSTERING in different resolutions : supplementary figure7 
+```{r}
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.0.8")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.4")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.2")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "sample")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "patient")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "lesion")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "condition")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+save( Nuclei_intexon_seurat_normAll , file =  "Nuclei_intronexon_sceset_roche_PCA_191118.Robj")
+
+
+```
+Processing of the final expression and annotations matrix:
+###########################################################################################################3
+create a seurat object for each of the individual 20 samples: Trying to rmeove osme possible batch effects
+```{r}
+
+load("Nuclei_intronexon_sceset_filtered.Robj")
+
+
+sceset_intronexon <- lapply(unique(sceset_intronexon$sample), function(i) {
+  sceset_intronexon[, sceset_intronexon$sample == i]
+})
+
+
+sces2 <- lapply(sceset_intronexon, function(w) {
+  tmp <- as.matrix(counts(w))
+  colnames(tmp) <- paste0(colData(w)$sample, "__" , 
+                          colData(w)$cell)
+                  
+  tmp
+})
+
+```
+
+seurat object for each sample
+
+```{bash}
+
+awk '{ print $2"__"$1"\t"$2"\t"$3"\t"$4"\t"$5"\t"$6 } '  10X_Nuclei_roche_networkAnnotableFile_corrected_header.txt > 10X_Nuclei_roche_networkAnnotableFile_header.txt
+```
+
+```{r}
+
+annotation_roche <- read.table("10X_Nuclei_roche_networkAnnotableFile_header.txt", stringsAsFactors=F)
+
+## Create Seurat object for each sample
+seurats2 <- lapply(sces2, function(w) {
+  s <- CreateSeuratObject(raw.data = w, 
+                          min.cells = 3, min.genes = 200, project = "MSCtrl")
+ 
+   mito.genes <- grep(pattern = "^MT.", x = rownames(x = s@data), value = TRUE)
+ 
+     percent.mito <- Matrix::colSums(s@raw.data[mito.genes, ])/Matrix::colSums(s@raw.data)
+s <- AddMetaData(object = s , metadata = percent.mito, col.name = "percent.mito")  
+     s <- AddMetaData(object = s , metadata = annotation_roche, col.name = "original")  
+s <- AddMetaData(object = s , metadata = annotation_roche, col.name = "sample")  
+s <- AddMetaData(object = s , metadata = annotation_roche , col.name = "condition")  
+s <- AddMetaData( object = s , metadata = annotation_roche , col.name = "lesion" )
+s <- AddMetaData( object = s , metadata = annotation_roche , col.name = "patient" )
+
+s <- FilterCells(object = s, subset.names = c("nGene" , "percent.mito"), 
+    low.thresholds = c(200, -Inf), high.thresholds = c(6000, 0.20)) ##maybe 3500
+
+  s <- NormalizeData(s)
+  
+  s <- ScaleData(s, vars.to.regress =c("nUMI" , "percent.mito" ), display.progress = FALSE)
+ 
+  s@meta.data$orig.ident <- s@meta.data$sample
+  FindVariableGenes(s, do.plot = FALSE)
+})
+
+
+#############################################
+save( seurats2 , file =  "Nuclei_intronexon_sceset_roche_filtered_seurats2.Robj")
+
+```
+run CCA using the grouping from the samples
+```{r}
+seurats <- seurats2
+
+## Find highly variable genes as the union of the top HVGs from each sample 
+hvgs_sample <- unique(unlist(lapply(seurats, function(w) rownames(head(w@hvg.info, n = 1000)))))
+
+table(grepl("^RP",(hvgs_sample)))
+
+hvgs_sample <- hvgs_sample[! grepl("^RP",(hvgs_sample))]
+## Remove batch effects and merge samples
+seurat_sample <- NULL
+discarded_cells_sample <- c()
+Ns <- seq_len(length(seurats))
+while(length(Ns) > 0) {
+  if (is.null(seurat_sample)) {
+    seurat_sample <- RunCCA(object = seurats[[Ns[1]]], object2 = seurats[[Ns[2]]], genes.use = hvgs_sample)
+    Ns <- Ns[-(1:2)]
+  } else {
+    seurat_sample <- RunCCA(object = seurat_sample, object2 = seurats[[Ns[1]]], genes.use = hvgs_sample)
+    Ns <- Ns[-1]
+  }
+  seurat_sample <- CalcVarExpRatio(seurat_sample, reduction.type = "pca", 
+                            grouping.var = "sample", dims.use= 1:15)
+  seuratdiscarded_sample <- SubsetData(seurat_sample, subset.name = "var.ratio.pca", accept.high = 0.5)
+  print(table(seuratdiscarded_sample@meta.data$sample))
+  discarded_cells_sample <- c(discarded_cells_sample, rownames(seuratdiscarded_sample@meta.data))
+  seurat_sample <- SubsetData(seurat_sample, subset.name = "var.ratio.pca", accept.low = 0.5)
+  seurat_sample <- AlignSubspace(seurat_sample, reduction.type = "cca", 
+                          grouping.var = "sample", dims.align = 1:15)
+  seurat_sample@meta.data$sample <- paste(unique(seurat_sample@meta.data$sample), collapse = "_")
+}
+
+#######################################################################################################
+save( seurat_sample , file =  "Nuclei_intronexon_sceset_filtered_roche_CCA.Robj")
+
+save( hvgs_sample , file =  "HVGS1K_Nuclei_intronexon_sceset_filtered_roche_CCA.Robj")
+
+
+```
+findclusters for grouped samples sample CCA
+```{r}
+Nuclei_intex_cca_sample <- seurat_sample
+
+## Run t-SNE on the merged data and find clusters
+Nuclei_intex_cca_sample <- RunPCA(object = Nuclei_intex_cca_sample , pc.genes = hvgs_sample , do.print = TRUE, pcs.print = 1:25, 
+    genes.print = 5)
+VizPCA(object = Nuclei_intex_cca_sample, pcs.use = 1:2)
+PCElbowPlot(object = Nuclei_intex_cca_sample )
+
+#PCHeatmap(object = Nuclei_intex_cca_sample , pc.use = 1:25, cells.use = 50, do.balanced = TRUE, 
+#    label.columns = FALSE, use.full = FALSE)
+```
+#clustering by sample CCA at different resolutions 
+```{r}
+
+
+Nuclei_intex_cca_sample <- RunTSNE(object = Nuclei_intex_cca_sample , reduction.use = "cca.aligned", dims.use = 1:15,    do.fast = TRUE)
+
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 2 )
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 4 )
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 0.8 , force.recalc = T )
+
+
+
+
+
+save( Nuclei_intex_cca_sample , file =  "Nuclei_intronexon_filtered_CCA_sample_clusters.Robj")
+
+```
+Final annotations can be find in the github repository/EGA accession or the https://ki.se/en/mbb/oligointernode webpage, the celltypes were asigned manually and confirmed based on previous knowledge of markers and finally validated with basescope. For any doubt contact through the issues or eneritz.agirre@ki.se
+
