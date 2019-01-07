@@ -1,0 +1,721 @@
+---
+title: "Figures source code, associated data tables are available at supplementary material"
+author: "Eneritz"
+date: "November 1, 2018"
+output: html_document
+---
+```{r}
+library(Seurat)
+library(Scater)
+library(gplots)
+library(viridis)
+```
+Figure 1c quantifications
+```{r}
+###editing 070219
+##all R object subset the OL clusters and then subset by MS and Ctrl separatelly
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL , do.label = TRUE, pt.size = 0.2)
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , do.label = TRUE, pt.size = 0.2)
+
+
+genes_quant_list <- cbind(  Nuclei_RES2_roche_FINAL.ALLCELLTYPES@data["LGALS1",] ,  Nuclei_RES2_roche_FINAL.ALLCELLTYPES@data["LURAP1L.AS1",] , Nuclei_RES2_roche_FINAL.ALLCELLTYPES@data["OPALIN",] , Nuclei_RES2_roche_FINAL.ALLCELLTYPES@data["CDH20",] , Nuclei_RES2_roche_FINAL.ALLCELLTYPES@data["KLK6",]  )
+
+genes_quant_list_ident <- cbind(  Nuclei_RES2_roche_FINAL.ALLCELLTYPES@ident , genes_quant_list )
+
+colnamesgenes <- c( "LGALS1" , "LURAP1L.AS1" , "OPALIN" , "CDH20" , "KLK6")
+colnames(genes_quant_list) <- colnamesgenes
+
+
+write.table( genes_quant_list , file =  "Nuclei_celltypes_KLK6", sep="\t",  col.names = T, quote = FALSE)
+
+write.table( cbind( Nuclei_RES2_roche_FINAL.ALLCELLTYPES@ident , Nuclei_RES2_roche_FINAL.ALLCELLTYPES@meta.data$condition , Nuclei_RES2_roche_FINAL.ALLCELLTYPES@meta.data$lesion ) , file =  "Nuclei_celltypes_IDENT1", sep="\t",  col.names = T, quote = FALSE)
+
+write.table( Nuclei_RES2_roche_FINAL.ALLCELLTYPES@ident   , file =  "Nuclei_celltypes_IDENT", sep="\t",  col.names = T, quote = FALSE)
+
+###generate a table with the counts:
+
+write.table( genes_quant_list_OL , file =  "Nuclei_OL_KLK6", sep="\t",  col.names = T, quote = FALSE)
+
+write.table( cbind( Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@ident , Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@meta.data$condition , Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@meta.data$lesion ) , file =  "Nuclei_OL_IDENT1", sep="\t",  col.names = T, quote = FALSE)
+
+write.table( Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@ident   , file =  "Nuclei_OL_IDENT", sep="\t",  col.names = T, quote = FALSE)
+
+####### Nuclei_OL_IDENT_LGALS1_LURAP1LAS1_OPALIN_CDH20_KLK6_data.txt
+
+  
+      
+###total number of positives:    the one in the paper:
+df <- data.frame(marker=rep(c(  "gene1" , "gene2" , "double"  ), each=4),  
+combination=rep(c( "CHD20+KLK6" , "LURAP1L.AS1+OPALIN" , "LURAP1P1L.AS1+CDH20" , "LURAP1L.AS1+KLK6"    ) ,3),
+perc= c( 
+
+3667*100/5902 , 1199*100/2980 , 562*100/5782 , 1160*100/3395 ,
+682*100/5902 , 1453*100/2980 , 4255*100/5782 , 1868*100/3395 ,
+1553*100/5902 , 328*100/2980 , 965*100/5782 , 367*100/3395  ))
+
+library(ggplot2)
+  ggplot(data=df, aes(x=combination, y=perc, fill=marker)) +
+  geom_bar(stat="identity")+
+ # geom_text(aes(y=label_ypos, label=pcount), vjust=1.6, 
+  #          color="white", size=3.5)+
+  scale_fill_brewer(palette="Paired")+
+theme(axis.text.x = element_text(angle = 70, hjust = 1))
+      theme_minimal()      
+            
+ 
+ ####counts table     
+df2 <- data.frame(marker=rep(c(  "gene1" , "gene2" , "double"  ), each=4),  
+combination=rep(c( "CHD20+KLK6" , "LURAP1L.AS1+OPALIN" , "LURAP1P1L.AS1+CDH20" , "LURAP1L.AS1+KLK6"    ) ,3),
+count= c( 
+
+3667 , 1199 , 562 , 1160 ,
+682 , 1453 , 4255 , 1868 ,
+1553 , 328 , 965 , 367 ))           
+      
+  
+ 
+```
+Figure1, Extended data figure4, Extended data Figure8 Violinplots code
+```{r}
+library(ggplot2)
+#Load seurat2.1 object with the cell clusters identitities ( Oligodencrocyte subclusters both MS and Ctrl nuclei)
+expression_mat <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@data
+annot_mat <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES@ident
+cols1 <- ( "Renamed_clusternames" ) 
+networkAnnotableFile <- as.data.frame(annot_mat)
+colnames(networkAnnotableFile) <- cols1 #Renamed_clusternames
+networkExpressionFile <- as.matrix(expression_mat)
+networkAnnotableFile$ReorderedViolin <- factor(networkAnnotableFile$Renamed_clusternames, levels= c(
+  "OPCs",
+  "COPs",
+  "ImOlGs",
+  "Oligo1",
+  "Oligo2",
+  "Oligo3",
+  "Oligo4",
+  "Oligo5",
+  "Oligo6"))
+
+df <- networkAnnotableFile[order(networkAnnotableFile$ReorderedViolin),]
+df$order <- factor(row.names(df), levels = row.names(df))
+
+####choose a genelist
+genelist <- c( "PDGFRA", "SOX6" , "BCAN", "PTPRZ1",  "PLP1", "MAG", "ITPR2" ,  "APOE" , "CD74" , "HLA.DRA"  )
+
+genelist <- c(  "GPR17" ,  "CSPG4"  , "BCAS1" ) # NG2 and bcas1
+
+annoviolin <- networkAnnotableFile[row.names(df),]
+FinalClustersreordered <-  networkAnnotableFile[row.names(df),]$ReorderedViolin
+expression <- as.data.frame(t(networkExpressionFile[,row.names(df)]))
+#make expression dataframe for plot
+annoviolin <- networkAnnotableFile[row.names(df),]
+FinalClustersreordered <-  networkAnnotableFile[row.names(df),]$ReorderedViolin
+
+library(reshape2)
+expression <- expression[,genelist]
+expression <-cbind(expression,Clusters=FinalClustersreordered)
+expression_genelist <- melt(expression,id=c("Clusters") )
+ colnames(expression_genelist)[3] <- "Normalized_Counts"
+
+#plot
+p <- ggplot(expression_genelist, aes(x=Clusters, y=Normalized_Counts,fill=Clusters))
+
+p +geom_violin(scale="width") +geom_boxplot(width=0.1,outlier.shape = NA,position=position_dodge(1),fill="white")+ theme_bw()+scale_fill_manual(values=c("#6ba136","#da9033","#5b61a7","#5ac07f","#9148b3","#5fc350","#d078e1","#bab535","#626ddc","#c84299"))+
+theme(axis.line = element_line(colour = "black"),
+       panel.grid.major = element_blank(),
+       panel.grid.minor = element_blank(),
+       panel.background = element_blank()) + theme(axis.text.x = element_text(angle = 90))+facet_grid(variable ~ .,scales="free")
+
+```
+Figure2 B 
+```{r}
+df <- data.frame(condition=rep(c( "MS" , "Ctrl" ), each=23),  
+Cluster=rep(c( "Astrocytes2"  ,         "Astrocytes" ,            "Endothelial_cells1"   , "Endothelial_cells2",    "Immune_cells"         ,
+"Macrophages"       ,    "Microglia_Macrophages", "Neuron1"       ,        "Neuron2" ,              "Neuron3"         ,      "Neuron4"      ,        
+ "Neuron5"            ,   "ImOlGs"          ,      "Oligo2"         ,       "Oligo4"        ,        "Oligo6"           ,     "Oligo5",               "Oligo1"          ,         "COPs"       ,   "Oligo3"          ,      "OPCs"     ,              "Pericytes"   ,          "Vasc_smooth_muscle"   ) ,2),
+freq= c( 
+0.408163265 ,0.676864245,        0.792035398     ,   0.942708333,  1.000000000, 0.997282609,           0.817757009,
+0.694094227 ,0.704450626 ,0.780590717 ,0.596638655 ,0.200736648 ,0.608695652, 0.789015769, 0.541481951 ,0.332210243 ,0.663239075,
+0.156775908 ,0.894193548 ,0.224431818 , 0.367768595 ,  0.770940171  ,      0.973214286,
+
+0.591836735 ,0.323135755 ,       0.207964602 ,       0.057291667,  0.000000000 ,0.002717391  ,         0.182242991,
+0.305905773, 0.295549374 ,0.219409283 ,0.403361345, 0.799263352 ,0.391304348 ,0.210984231 ,0.458518049 ,0.667789757, 0.336760925,
+0.843224092, 0.105806452, 0.775568182, 0.632231405 , 0.229059829    ,    0.026785714 ))
+
+ library(ggplot2)
+  ggplot(data=df, aes(x=Cluster, y=freq, fill=condition)) +
+  geom_bar(stat="identity")+
+ # geom_text(aes(y=label_ypos, label=pcount), vjust=1.6, 
+  #          color="white", size=3.5)+
+  #scale_fill_brewer(palette="Paired")+
+theme(axis.text.x = element_text(angle = 70, hjust = 1))
+      theme_minimal()
+
+##remove this later            
+#write.table( df , file =  "/media/eneritz/TOSHIBA\ EXT/Figure2B_freq_table.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+     
+```  
+Figure2 C
+```{r}
+df2 <- data.frame(Cluster=rep(c(  "COPs" , "_OPCs" , "ImOlGs" ,  "Oligo1"  , "Oligo2" ,  "Oligo3"  , "Oligo4" ,  "Oligo5"  , "Oligo6"     ), each=6),  
+Lesion=rep(c( "Ctr_WM" , "NAWM" , "A" , "CA" , "CI" , "RM") ,9),
+freq= c(
+
+0.037899430 ,0.024111675 ,0.017736486 ,0.023655914 ,0.014795474 ,0.005509642,
+0.067624474 ,0.015862944, 0.014358108 ,0.027956989 ,0.020017406 ,0.002754821 ,
+0.020064404 ,0.022208122 ,0.037162162 ,0.012903226 ,0.035683203 ,0.000000000,
+ 0.235818677, 0.031725888 ,0.037162162, 0.058064516, 0.044386423 ,0.013774105,
+0.096110973 ,0.392766497 ,0.145270270 ,0.290322581, 0.213228895 ,0.771349862,
+0.020312113 ,0.086928934 ,0.262668919 ,0.107526882 ,0.165361184 ,0.013774105,
+0.179341095 ,0.119289340 ,0.152871622 ,0.266666667 ,0.268059182 ,0.148760331,
+0.097349517 ,0.184010152 ,0.257601351 ,0.094623656 ,0.107049608 ,0.033057851,
+ 0.245479316 ,0.123096447 ,0.075168919 ,0.118279570 ,0.131418625 , 0.011019284))
+ 
+
+library(ggplot2)
+  ggplot(data=df2, aes(x=Lesion, y=freq, fill=Cluster)) +
+  geom_bar(stat="identity")+
+ # geom_text(aes(y=label_ypos, label=pcount), vjust=1.6, 
+  #          color="white", size=3.5)+
+  #scale_fill_brewer(palette="Paired")+
+#scale_color_manual(values = my_color_palette2)+ 
+    theme(axis.text.x = element_text(angle = 70, hjust = 1))
+      theme_minimal()
+##remove this later      
+write.table( df2 , file =  "/media/eneritz/TOSHIBA\ EXT/Figure2C_freq_table.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE) 
+  
+```  
+Figure 4 b
+```{r}  
+#from the object with the Oligodendroglia and only MS nuclei      
+Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , id = "lesion")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS, do.label = TRUE, pt.size = 0.2)
+
+cluster.Lesion_averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , return.seurat = TRUE, show.progress = FALSE )
+
+CellPlot(object = cluster.Lesion_averages, cell1 = "A", cell2 = "CI")
+
+
+
+
+Nuclei_OL_final.subset_Oligo6 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo6"))
+ 
+Nuclei_OL_final.subset_Oligo6 <- SetAllIdent(object = Nuclei_OL_final.subset_Oligo6, id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo6.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo6  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+
+cluster.averages_Oligo6 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo6, show.progress = FALSE) 
+  
+Nuclei_OL_final.subset_Oligo5 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo5"))
+ 
+Nuclei_OL_final.subset_Oligo5 <- SetAllIdent(object = Nuclei_OL_final.subset_Oligo5 , id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo5.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo5  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+cluster.averages_Oligo5 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo5, show.progress = FALSE) 
+
+Nuclei_OL_final.subset_Oligo4 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo4"))
+ 
+Nuclei_OL_final.subset_Oligo4 <- SetAllIdent(object = Nuclei_OL_final.subset_Oligo4 , id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo4.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo4  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+cluster.averages_Oligo4 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo4, show.progress = FALSE) 
+
+Nuclei_OL_final.subset_Oligo3 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo3"))
+ 
+Nuclei_OL_final.subset_Oligo3 <- SetAllIdent(object =  Nuclei_OL_final.subset_Oligo3 , id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo3.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo3  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+cluster.averages_Oligo3 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo3, show.progress = FALSE) 
+
+Nuclei_OL_final.subset_Oligo2 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo2"))
+ 
+Nuclei_OL_final.subset_Oligo2 <- SetAllIdent(object = Nuclei_OL_final.subset_Oligo2 , id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo2.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo2  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+cluster.averages_Oligo2 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo2, show.progress = FALSE) 
+
+Nuclei_OL_final.subset_Oligo1 <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "Oligo1"))
+ 
+Nuclei_OL_final.subset_Oligo1 <- SetAllIdent(object = Nuclei_OL_final.subset_Oligo1 , id = "lesion" )
+
+Nuclei_OL_final.subset_Oligo1.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_Oligo1  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+cluster.averages_Oligo1 <- AverageExpression(object = Nuclei_OL_final.subset_Oligo1, show.progress = FALSE) 
+
+
+
+Nuclei_OL_final.subset_ImOlG <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , ident.use = c( "ImOlGs"))
+ 
+Nuclei_OL_final.subset_ImOlG <- SetAllIdent(object = Nuclei_OL_final.subset_ImOlG , id = "lesion" )
+
+Nuclei_OL_final.subset_ImOlG.Wilcox.markers <- FindAllMarkers(object = Nuclei_OL_final.subset_ImOlG  , only.pos = TRUE, min.pct = 0.25,  thresh.use = 0.25, test.use = "wilcox")
+
+
+cluster.averages_ImOlG <- AverageExpression(object = Nuclei_OL_final.subset_ImOlG, show.progress = FALSE) 
+
+write.table( Nuclei_OL_final.subset_Oligo1.Wilcox.markers , file =  "Oligo1_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_Oligo2.Wilcox.markers , file =  "Oligo2_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_Oligo3.Wilcox.markers , file =  "Oligo3_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_Oligo4.Wilcox.markers , file =  "Oligo4_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_Oligo5.Wilcox.markers , file =  "Oligo5_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_Oligo6.Wilcox.markers , file =  "Oligo6_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_OL_final.subset_ImOlG.Wilcox.markers , file =  "ImOlG_lesion.Wilcox.markers.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+
+lines(x = c(0,100), y = c(0,100))
+
+
+
+points( (cluster.averages_Oligo2[  rownames(cluster.averages_Oligo2) == "CDH20" ,1]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "CDH20" ,2]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "CDH20" ,4]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "CDH20" ,5])/4 , cluster.averages_Oligo2[  rownames(cluster.averages_Oligo2) == "CDH20" ,3]   , pch=20 , col="tomato")
+
+points( (cluster.averages_Oligo2[  rownames(cluster.averages_Oligo2) == "KIRREL3" ,1]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "KIRREL3" ,2]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "KIRREL3" ,4]+cluster.averages_Oligo2[ rownames(cluster.averages_Oligo2) == "KIRREL3" ,5])/4 , cluster.averages_Oligo2[  rownames(cluster.averages_Oligo2) == "KIRREL3" ,3]   , pch=20 , col="tomato")
+
+
+
+plot( (cluster.averages_Oligo3[,1]+cluster.averages_Oligo3[,4]+cluster.averages_Oligo3[,2]+cluster.averages_Oligo3[,5])/4  , cluster.averages_Oligo3[,3] , xlab="Average gene expression Lesions" , ylab="Average gene expression CI" , pch=20 , xlim=c(0,20) , ylim=c(0,20)  )
+
+
+
+lines(x = c(0,100), y = c(0,100))
+
+
+
+points( (cluster.averages_Oligo3[  rownames(cluster.averages_Oligo3) == "CDH20" ,1]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "CDH20" ,2]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "CDH20" ,4]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "CDH20" ,5])/4 , cluster.averages_Oligo3[  rownames(cluster.averages_Oligo3) == "CDH20" ,3]   , pch=20 , col="tomato")
+
+points( (cluster.averages_Oligo3[  rownames(cluster.averages_Oligo3) == "KIRREL3" ,1]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "KIRREL3" ,2]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "KIRREL3" ,4]+cluster.averages_Oligo3[ rownames(cluster.averages_Oligo3) == "KIRREL3" ,5])/4 , cluster.averages_Oligo3[  rownames(cluster.averages_Oligo3) == "KIRREL3" ,3]   , pch=20 , col="tomato")
+
+
+Fig4_Oligo3_KIRREL_CDH20_CI
+Fig4_Oligo2_KIRREL_CDH20_CI
+
+
+
+
+```
+Figure2 D and all the tsnes coords
+```{r}  
+load("Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL.Robj")
+load("Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS.Robj")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL , do.label = TRUE, pt.size = 0.2)
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS , do.label = TRUE, pt.size = 0.2)  
+
+Allcelltypes_MSCtrl_nuclei_tSNEcoords <- Nuclei_RES2_roche_FINAL.ALLCELLTYPES@dr$tsne@cell.embeddings
+Oligodendroglia_Ctrl_nuclei_tSNEcoords <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@dr$tsne@cell.embeddings
+Oligodendroglia_MS_nuclei_tSNEcoords <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS@dr$tsne@cell.embeddings
+
+write.table( Allcelltypes_MSCtrl_nuclei_tSNEcoords , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Allcelltypes_MSCtrl_nuclei_tSNEcoords.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+write.table( Oligodendroglia_Ctrl_nuclei_tSNEcoords , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Oligodendroglia_Ctrl_nuclei_tSNEcoords.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+write.table( Oligodendroglia_MS_nuclei_tSNEcoords , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Oligodendroglia_MS_nuclei_tSNEcoords.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+Allcelltypes_MSCtrl_nuclei_annotation <- Nuclei_RES2_roche_FINAL.ALLCELLTYPES@meta.data 
+Oligodendroglia_Ctrl_nuclei_annotation <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@meta.data
+Oligodendroglia_MS_nuclei_annotation <- Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS@meta.data
+
+write.table( Allcelltypes_MSCtrl_nuclei_annotation , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Allcelltypes_MSCtrl_nuclei_annotation.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+write.table( Oligodendroglia_Ctrl_nuclei_annotation , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Oligodendroglia_Ctrl_nuclei_annotation.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+write.table( Oligodendroglia_MS_nuclei_annotation , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Oligodendroglia_MS_nuclei_annotation.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+
+
+```  
+figure 3 E
+``` {r}
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.mOL <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , ident.use = c( "Oligo1" , "Oligo2"  , "Oligo3"  , "Oligo4" , "Oligo5" , "Oligo6"))
+Nuclei_RES2_roche_FINAL.OPC <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , ident.use = c( "OPCs" ))
+
+Nuclei_RES2_roche_FINAL.COP <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , ident.use = c( "COPs" ))
+
+Nuclei_RES2_roche_FINAL.OPC_COP <- SubsetData(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , ident.use = c( "OPCs" , "COPs" ))
+
+
+##average expressions: 
+COP_nuclei.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.COP , add.ident = "condition")                                         
+
+COP_OPC_nuclei.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.OPC_COP , add.ident = "condition")  
+
+OPC_nuclei.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.OPC , show.progress = T , add.ident = "condition" )
+
+mOL.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.mOL , show.progress = T , add.ident = "condition" )
+
+write.table( mOL.subset.averages ,file = "mOL_Nuclei_average_gene_expressions.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( OPC_nuclei.subset.averages ,file = "OPC_Nuclei_average_gene_expressions.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( COP_OPC_nuclei.subset.averages ,file = "OPC_COP_Nuclei_average_gene_expressions.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( COP_nuclei.subset.averages ,file = "COP_Nuclei_average_gene_expressions.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+
+###compare controls vs NAWm 
+
+Nuclei_RES2_roche_FINAL.COP <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.COP , id = "lesion")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.COP , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset <- SubsetData(object =Nuclei_RES2_roche_FINAL.COP , ident.use = c( "Ctrl" , "NAWM" ))
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset , id = "Celltype")
+
+
+current.cluster.ids  <- c(   "COP_NFOL"   )        
+
+new.cluster.ids <- c(   "COPs"     )        
+
+
+Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset@ident <- plyr::mapvalues(x =Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset@ident, from = current.cluster.ids, to = new.cluster.ids)
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+
+Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset , add.ident = "lesion" )   
+########
+
+Nuclei_RES2_roche_FINAL.OPC <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.OPC , id = "lesion")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset <- SubsetData(object =Nuclei_RES2_roche_FINAL.OPC , ident.use = c( "Ctrl" , "NAWM" ))
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset , id = "Celltype")
+
+
+current.cluster.ids  <- c(   "OPC"   )        
+
+new.cluster.ids <- c(   "OPCs"     )        
+
+
+Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset@ident <- plyr::mapvalues(x =Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset@ident, from = current.cluster.ids, to = new.cluster.ids)
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+
+Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset , add.ident = "lesion" )   
+######################
+
+
+Nuclei_RES2_roche_FINAL.OPC_COP <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.OPC_COP , id = "lesion")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC_COP , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset <- SubsetData(object =Nuclei_RES2_roche_FINAL.OPC_COP , ident.use = c( "Ctrl" , "NAWM" ))
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset , id = "Celltype")
+
+
+current.cluster.ids  <- c(   "OPC"  , "COP_NFOL"  )        
+
+new.cluster.ids <- c(   "OPCs" , "COPs"     )        
+
+
+Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset@ident <- plyr::mapvalues(x =Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset@ident, from = current.cluster.ids, to = new.cluster.ids)
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+
+Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset , add.ident = "lesion" )   
+
+
+######################
+
+
+Nuclei_RES2_roche_FINAL.mOL <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.mOL , id = "lesion")
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.mOL , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset <- SubsetData(object =Nuclei_RES2_roche_FINAL.mOL , ident.use = c( "Ctrl" , "NAWM" ))
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset <- SetAllIdent(object = Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset , id = "Celltype")
+
+current.cluster.ids  <- c(    "OligoA"     ,     "OligoE",   "OligoB" ,   "OligoF"    ,     "OligoD"  ,     "OligoC"  )        
+
+new.cluster.ids <- c(      "Oligo2"   ,       "Oligo1",                "Oligo4" ,   "Oligo3"    ,    "Oligo5"  ,     "Oligo6")        
+
+
+Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset@ident <- plyr::mapvalues(x =Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset@ident, from = current.cluster.ids, to = new.cluster.ids)
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset , do.label = TRUE, pt.size = 0.2)
+
+
+Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset.averages <- AverageExpression(object = Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset , add.ident = "lesion" )   
+
+
+write.table( Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset.averages ,file = "Nuclei_RES2_roche_FINAL.mOL.NAWM_Ctrl.subset.averages.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset.averages ,file = "Nuclei_RES2_roche_FINAL.OPC.NAWM_Ctrl.subset.averages.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset.averages ,file = "Nuclei_RES2_roche_FINAL.COP.NAWM_Ctrl.subset.averages.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+write.table( Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset.averages ,file = "Nuclei_RES2_roche_FINAL.OPC_COP.NAWM_Ctrl.subset.averages.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+
+#########
+##build tables of the selected genes with the average expressions:
+library(gplots)
+library(viridis)
+
+heatmap.2(as.matrix(Avg_Expression_Ol_Ctrl_MS_Figure3E), Rowv = F , Colv = F , trace='none'  , cexRow=0.5 , cexCol=0.5 , col=viridis(25) , scale = "row" )
+
+write.table( as.matrix(OL_MAT2) , file =  "Avg_Expression_Ol_Ctrl_MS_Figure3E.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+``` 
+Extended data figure 8 H
+```{r}
+
+library(gplots)
+library(viridis)
+
+heatmap.2(as.matrix(OL_NAWM_MAT_OR2), Rowv = F , Colv = F , trace='none'  , cexRow=0.5 , cexCol=0.5 , col=viridis(25) , scale = "row" )
+
+heatmap.2(as.matrix(opc_or2_mtx), Rowv = F , Colv = F , trace='none'  , cexRow=0.5 , cexCol=0.5 , col=viridis(50)  )
+heatmap.2(as.matrix(opc_or2_nawmmtx), Rowv = F , Colv = F , trace='none'  , cexRow=0.5 , cexCol=0.5 , col=viridis(50)  )
+
+
+
+write.table( as.matrix(OL_NAWM_MAT_OR2) , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Avg_Expression_Ol_Ctrl_NAWM_Ext_DataFigure8H.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( as.matrix(opc_or2_mtx) , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Avg_Expression_OPC_Ctrl_MS_Ext_DataFigure8H.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( as.matrix(opc_or2_nawmmtx) , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/Avg_Expression_OPC_Ctrl_NAWM_Ext_DataFigure8H.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+```
+Extended data figure3
+
+```{r}
+
+#file from MSCtr_processing_figures.Rmd--- > ploting the tsnes in different resolutions
+load("Nuclei_intronexon_sceset_filtered_roche_CCA.Robj" , verbose=T)
+
+```
+ Extended data figure3 : CLUSTERING in different resolutions :
+```{r}
+Nuclei_intex_cca_sample <- seurat_sample
+
+## Run t-SNE on the merged data and find clusters
+Nuclei_intex_cca_sample <- RunPCA(object = Nuclei_intex_cca_sample , pc.genes = hvgs_sample , do.print = TRUE, pcs.print = 1:25, 
+    genes.print = 5)
+VizPCA(object = Nuclei_intex_cca_sample, pcs.use = 1:2)
+PCElbowPlot(object = Nuclei_intex_cca_sample )
+
+#clustering by sample CCA at different resolutions 
+
+
+
+Nuclei_intex_cca_sample <- RunTSNE(object = Nuclei_intex_cca_sample , reduction.use = "cca.aligned", dims.use = 1:15,    do.fast = TRUE)
+
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 2 )
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 4 )
+
+Nuclei_intex_cca_sample <- FindClusters(object = Nuclei_intex_cca_sample , reduction.type = "cca.aligned", dims.use = 1:15, 
+                       save.SNN = TRUE, print.output = FALSE , resolution = 0.8 , force.recalc = T )
+
+```
+Extended data figure5
+
+```{r}
+
+# https://github.com/maggiecrow/MetaNeighbor
+source("2017-08-28-runMN-US.R")
+
+##3prepare files
+#Original data from ( Falcao, van Bruggen et al. 2018)
+var.genesEAE=get_variable_genes( EAE_expression , EAE_anno_smc2)
+
+##remove paths later
+saveRDS( combine.matrix_OL_EAE_roche_OLfilt , "combine.Expressionmatrix_OL_EAE_Nuclei_ExtDataFig5.rds")
+ 
+write.table( combine.matrix_OL_EAE_roche_OLfilt ,file = "combine.Expressionmatrix_OL_EAE_Nuclei_ExtDataFig5.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+##combined phe data from Falcao, van Bruggen et al. and nuclei human data 
+pheno_OLnuclei_EAE_OL <- read.table("pheno_OLnuclei_EAE_OLlineage.txt" , header = T  )
+
+celltypes_OLnuclei_EAE_filt <- as.vector(unique(pheno_OLnuclei_EAE_OL[,3])  )
+
+##variable genes of both datasets
+var.genes_OL_MN_EAE_roche_OLonly=get_variable_genes(combine.matrix_OL_EAE_roche_OLfilt, pheno_OLnuclei_EAE_OL)
+
+
+#run metaneighbor
+celltype.OL_EAE_roche_Vargenes_OLonly.MN =run_MetaNeighbor_US( var.genes_OL_MN_EAE_roche_OLonly , combine.matrix_OL_EAE_roche_OLfilt , celltypes_OLnuclei_EAE_filt ,  pheno_OLnuclei_EAE_OL )
+
+save( var.genes_OL_MN_EAE_roche_OLonly , file = "var.genes_OL_MN_EAE_roche_OLonly.Robj" )
+
+#plot results
+
+library(gplots)
+library(RColorBrewer)
+
+cols=rev(colorRampPalette(brewer.pal(11,"RdYlBu"))(100))
+breaks=seq(0,1,length=101)
+
+heatmap.2(celltype.OL_EAE_roche_Vargenes.MN,trace="none",density.info="none",col=cols,breaks=breaks,cexRow=0.6,cexCol=0.6)
+
+#top hits > 0.5 mean AUROC
+top_hits_OL_Vargenes_EAE_roche_OLonly_MN=get_top_hits(celltype.OL_EAE_roche_Vargenes_OLonly.MN,pheno_OLnuclei_EAE_OL,threshold=0.5,filename="celltype.OL_EAE_roche_Vargenes_onlyOL.MN_05.txt")
+
+top_hits_OL_Vargenes_EAE_roche_OLonly_MN
+
+
+####for the figure
+load("celltype.OL_EAE_roche_Vargenes_OLonly.MN.Robj" , verbose=T)
+
+eae_colnames <- c( "COP_mouse"  ,   "OPC1_mouse" , "MOL56_CtrlA_mouse", "MOL56_CtrlB_mouse" ,"OPC2_mouse" ,  "OPC_Cycling_mouse"  ,  "MOL56_EAEB_mouse"  , "NFOL_mouse"  , "MOL2_CtrlA_mouse"   ,"MOL3_EAE_mouse"  ,     "MOL56_EAEA_mouse" ,  "OPC3_mouse"  , "MOL56_EAEC_mouse" ,  "MOL12_EAE_mouse"   ,  "COP"   ,    "OPC" , "ImOlG"   ,    "Oligo2"   ,      "Oligo4"    ,   "Oligo6"  ,  "Oligo5"       ,  "Oligo1"      ,   "Oligo3" )   
+
+eae_rownames <- c( "COP_mouse"  ,   "OPC1_mouse" , "MOL56_CtrlA_mouse", "MOL56_CtrlB_mouse" ,"OPC2_mouse" ,  "OPC_Cycling_mouse"  ,  "MOL56_EAEB_mouse"  , "NFOL_mouse"  , "MOL2_CtrlA_mouse"   ,"MOL3_EAE_mouse"  ,     "MOL56_EAEA_mouse" ,  "OPC3_mouse"  , "MOL56_EAEC_mouse" ,  "MOL12_EAE_mouse"   ,  "COP"   ,    "OPC" , "ImOlG"   ,    "Oligo2"   ,      "Oligo4"    ,   "Oligo6"  ,  "Oligo5"       ,  "Oligo1"      ,   "Oligo3" )  
+
+colnames(celltype.OL_EAE_roche_Vargenes_OLonly.MN) <- eae_colnames
+rownames(celltype.OL_EAE_roche_Vargenes_OLonly.MN) <- eae_rownames
+
+mtx1 <- celltype.OL_EAE_roche_Vargenes_OLonly.MN
+mtx2 <- mtx1[1:14,15:23]
+heatmap.2(mtx2,trace="none",density.info="none",cexRow=0.6,cexCol=0.6 ,  col=viridis(50) )
+
+
+heatmap.2(celltype.OL_EAE_roche_Vargenes_OLonly.MN_test,trace="none",density.info="none",cexRow=0.6,cexCol=0.6 ,  col=viridis(50) )
+
+write.table( celltype.OL_EAE_roche_Vargenes_OLonly.MN , file =  "celltype.OL_EAE_roche_Vargenes_OLonly.MN.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE) 
+
+write.table( var.genes_OL_MN_EAE_roche_OLonly , file =  "/media/eneritz/TOSHIBA\ EXT/RMD_CODE/var.genes_OL_MN_EAE_roche_OLonly.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+```
+Extended data figure7 
+```{r}
+
+TSNEPlot(object = Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES , do.label = TRUE, pt.size = 0.2)
+        
+      
+(freq_table2 <- prop.table(x = table(Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@ident, Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_CTRL@meta.data[, "patient"]), 
+                          margin = 2))     
+
+(freq_table3 <- prop.table(x = table(Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS@ident, Nuclei_RES2_roche_FINAL.OL_ALLCELLTYPES_MS@meta.data[, "patient"]), 
+                          margin = 2))      
+
+
+
+#controls
+df2 <- data.frame(Cluster=rep(c(  "OPCs" , "COPs" ,  "ImOlGs" ,  "Oligo1"  , "Oligo2" ,  "Oligo3"  , "Oligo4" ,  "Oligo5"  , "Oligo6"     ), each=5),  
+Controls=rep(c( "CO14",   "CO25",    "CO28" ,   "CO39" ,     "SD48/16") ,9),
+freq= c( 
+0.029896907, 0.010256410, 0.002717391, 0.034265734, 0.178770950,
+0.023711340 ,0.041025641, 0.184782609, 0.017482517, 0.027001862,
+0.002061856 ,0.010256410, 0.073369565, 0.019580420, 0.020484171,
+0.042268041 ,0.271794872, 0.010869565, 0.239860140, 0.475791434,
+0.144329897 ,0.046153846, 0.002717391, 0.154545455, 0.015828678,
+0.047422680 ,0.076923077, 0.000000000, 0.009790210, 0.006517691,
+0.129896907 ,0.087179487, 0.029891304, 0.221678322 ,0.235567970,
+0.189690722 ,0.179487179, 0.010869565, 0.112587413, 0.008379888,
+0.390721649 ,0.276923077, 0.684782609, 0.190209790, 0.031657356))
+ 
+#patients
+df3 <- data.frame(Cluster=rep(c(  "OPCs" , "COPs" ,  "ImOlGs" ,  "Oligo1"  , "Oligo2" ,  "Oligo3"  , "Oligo4" ,  "Oligo5"  , "Oligo6"     ), each=4),  
+Patients=rep(c( "MS121" ,       "MS122" ,       "MS176" ,      "MS242" ) ,9),
+freq= c( 
+0.013371538 ,0.024617997, 0.003069839, 0.096774194,
+0.013371538 ,0.025891341, 0.008442057 ,0.096774194,
+0.033428844, 0.034804754, 0.006139678 ,0.032258065,
+0.031518625, 0.053056027, 0.014581734 ,0.000000000,
+0.104106972 ,0.155348048 ,0.734458941 ,0.612903226,
+0.278892073 ,0.153650255 ,0.028396009 ,0.064516129,
+0.159503343 ,0.232597623 ,0.105909440 ,0.064516129,
+ 0.306590258, 0.167232598, 0.045280123, 0.000000000,
+0.059216810 ,0.152801358 ,0.053722180, 0.032258065
+))
+
+library(ggplot2)
+
+#controls
+df2$Cluster2 <- relevel(df2$Cluster, "OPCs")
+
+p3 <- ggplot(data=df2, aes(x=Controls, y=freq, fill=Cluster2)) +
+ 
+   geom_bar(stat='identity') +
+scale_color_manual(values = OL_palette)
+# Freq_OL_in_control_samples
+      
+
+#patients
+df3$Cluster2 <- relevel(df3$Cluster, "OPCs")
+
+p4 <- ggplot(data=df3, aes(x=Patients, y=freq, fill=Cluster2)) +
+ 
+   geom_bar(stat='identity') +
+scale_color_manual(values = OL_palette)
+
+write.table( df2 , file =  "Ctrl_samples_frq_Oligodendroglia_ExtDataFigue7E.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+write.table( df3 , file =  "MS_samples_frq_Oligodendroglia_ExtDataFigue7E.txt", sep="\t",row.names = T, col.names = TRUE, quote = FALSE)
+
+
+    
+```
+Extended data figure7 
+```{r}
+#file from MSCtr_processing_figures.Rmd
+load("Nuclei_intronexon_sceset_roche_PCA_191118.Robj" , verbose=T)
+
+```
+CLUSTERING in different resolutions : supplementary figure7 
+```{r}
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.0.8")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.4")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "res.2")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2 )
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "sample")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = TRUE, pt.size = 0.2)
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "patient")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "lesion")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+Nuclei_intexon_seurat_normAll <- SetAllIdent(object = Nuclei_intexon_seurat_normAll , id = "condition")
+TSNEPlot(object = Nuclei_intexon_seurat_normAll , do.label = F, pt.size = 0.2 )
+
+```
