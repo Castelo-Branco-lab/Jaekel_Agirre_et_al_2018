@@ -1,4 +1,4 @@
-# Jaekel_Agirre_et_al_2018
+# Jaekel_Agirre_et_al_2019
 Code notebooks and data from the manuscript. 
 
 Annotation Data matrix and raw UMI count matrix is available at GEO accession number GSE118257 . 
