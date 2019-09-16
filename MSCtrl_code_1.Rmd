@@ -44,7 +44,8 @@ sceset_intronexon <- SingleCellExperiment(
 keep_feature <- rowSums(counts(sceset_intronexon) > 0) > 0
 sceset_intronexon <- sceset_intronexon[keep_feature,]
 
-is.mito <- grepl("^MT.", rownames(sceset_intronexon))
+####Updated: when doing grep on MT genes, check first the annotation ; if MT. MT- ...
+is.mito <- grepl("^MT\\.", rownames(sceset_intronexon))
 summary(is.mito)
 #there is  mitochondrial
 sceset_intronexon <- calculateQCMetrics(sceset_intronexon , feature_controls=list( Mt=is.mito)  )
@@ -122,7 +123,8 @@ seurats <- lapply(sces2, function(w) {
   s <- CreateSeuratObject(raw.data = w, 
                           min.cells = 3, min.genes = 200, project = "MSCtrl")
  
-   mito.genes <- grep(pattern = "^MT.", x = rownames(x = s@data), value = TRUE)
+ ####Updated: when doing grep on MT genes, check first the annotation ; if MT. MT- ...
+   mito.genes <- grep(pattern = "^MT\\.", x = rownames(x = s@data), value = TRUE)
  
      percent.mito <- Matrix::colSums(s@raw.data[mito.genes, ])/Matrix::colSums(s@raw.data)
 s <- AddMetaData(object = s , metadata = percent.mito, col.name = "percent.mito")  
@@ -276,7 +278,7 @@ Nuclei_OL.data <- Nuclei_OL.subset@data
 Nuclei_OL.rawdata <- as.matrix(Nuclei_OL.data)
 
 Nuclei_OL.var_genes <- Nuclei_OL.subset@var.genes
-Nuclei_OL.var_genes_filtered <- Nuclei_OL.var_genes[! grepl("MT.",(Nuclei_OL.var_genes))]
+#Nuclei_OL.var_genes_filtered <- Nuclei_OL.var_genes[! grepl("^MT\\.",(Nuclei_OL.var_genes))]
 
 celltypes_nuclei <- new.cluster.ids
 
