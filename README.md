@@ -9,7 +9,7 @@ Due to sensitivity reasons human data is available under restricted access.
 
 Yo can explore the data at https://ki.se/en/mbb/oligointernode
 
-Manuscript is available at (Jäkel and Agirre et al. 2019 PUBMEDID XX, doi: 10.1038/s41586-019-0903-2 )
+Manuscript is available at (Jäkel and Agirre et al. 2019 PMID:30747918, doi: 10.1038/s41586-019-0903-2 )
 
 
 
